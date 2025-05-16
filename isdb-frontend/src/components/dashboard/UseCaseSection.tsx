@@ -595,7 +595,7 @@ export default function UseCaseSection() {
       )}
       </div>
 
-      <Card className="flex-1 mb-4 overflow-hidden flex flex-col border-green-500">
+      <Card className="flex-1 mb-4 overflow-hidden flex flex-col">
         <CardContent className="p-4 overflow-y-auto flex-1">
           <div className="space-y-4">
             {messages.map((message, index) => (
