@@ -5,67 +5,96 @@ Calculation utilities for the Islamic Finance API.
 def calculate_ijarah_values(variables):
     """
     Calculate Ijarah accounting values based on extracted variables.
-    
+
     Args:
-        variables (dict): The extracted variables
-        
+        variables (dict): The extracted variables with keys:
+            - purchase_price (float)
+            - import_tax (float)
+            - freight_charges (float)
+            - yearly_rental (float)
+            - lease_term (int)
+            - residual_value (float)
+            - purchase_option (float)
+
     Returns:
-        dict: Calculated values
+        dict: Calculated values including prime_cost, rou_asset, total_rentals, 
+              deferred_cost, terminal_value_diff, amortizable_amount, ijarah_liability
     """
-    results = {}
-    purchase_price = variables.get('purchase_price', 0)
-    import_tax = variables.get('import_tax', 0)
-    freight_charges = variables.get('freight_charges', 0)
-    yearly_rental = variables.get('yearly_rental', 0)
-    lease_term = variables.get('lease_term', 0)
-    residual_value = variables.get('residual_value', 0)
-    purchase_option = variables.get('purchase_option', 0)
+    # Extract and sanitize inputs
+    purchase_price = float(variables.get('purchase_price', 0))
+    import_tax = float(variables.get('import_tax', 0))
+    freight_charges = float(variables.get('freight_charges', 0))
+    yearly_rental = float(variables.get('yearly_rental', 0))
+    lease_term = int(variables.get('lease_term', 0))
+    residual_value = float(variables.get('residual_value', 0))
+    purchase_option = float(variables.get('purchase_option', 0))
+
+    # Core calculations
     prime_cost = purchase_price + import_tax + freight_charges
-    rou_asset = prime_cost - purchase_option
+    rou_asset = prime_cost
     total_rentals = yearly_rental * lease_term
     deferred_cost = total_rentals - rou_asset
     terminal_value_diff = residual_value - purchase_option
     amortizable_amount = rou_asset - terminal_value_diff
-    results['prime_cost'] = prime_cost
-    results['rou_asset'] = rou_asset
-    results['total_rentals'] = total_rentals
-    results['deferred_cost'] = deferred_cost
-    results['terminal_value_diff'] = terminal_value_diff
-    results['amortizable_amount'] = amortizable_amount
-    results['ijarah_liability'] = total_rentals
-    return results
+    ijarah_liability = total_rentals
+
+    return {
+        'prime_cost': prime_cost,
+        'rou_asset': rou_asset,
+        'total_rentals': total_rentals,
+        'deferred_cost': deferred_cost,
+        'terminal_value_diff': terminal_value_diff,
+        'amortizable_amount': amortizable_amount,
+        'ijarah_liability': ijarah_liability
+    }
+
 
 def calculate_murabaha_values(variables):
     """
     Calculate Murabaha accounting values based on extracted variables.
-    
+
     Args:
-        variables (dict): The extracted variables
-        
+        variables (dict): The extracted variables with keys:
+            - cost_price (float)
+            - selling_price (float)
+            - profit_rate (float, in %)
+            - installments (int)
+            - down_payment (float)
+
     Returns:
-        dict: Calculated values
+        dict: Calculated values including cost_price, selling_price, profit, and installment_amount
     """
-    results = {}
-    cost_price = variables.get('cost_price', 0)
-    selling_price = variables.get('selling_price', 0)
-    profit_rate = variables.get('profit_rate', 0)
-    installments = variables.get('installments', 1)
-    down_payment = variables.get('down_payment', 0)
+    # Extract and sanitize inputs
+    cost_price = float(variables.get('cost_price', 0))
+    selling_price = float(variables.get('selling_price', 0))
+    profit_rate = float(variables.get('profit_rate', 0))
+    installments = int(variables.get('installments', 1))
+    down_payment = float(variables.get('down_payment', 0))
+
+    results = {
+        'cost_price': cost_price,
+        'selling_price': selling_price,
+        'profit': 0,
+        'installment_amount': 0
+    }
+
     if selling_price == 0 and cost_price > 0 and profit_rate > 0:
-        selling_price = cost_price * (1 + profit_rate/100)
+        selling_price = cost_price * (1 + profit_rate / 100)
         results['selling_price'] = selling_price
+    else:
+        results['selling_price'] = selling_price
+
     if selling_price > 0 and cost_price > 0:
         profit = selling_price - cost_price
         results['profit'] = profit
+
         if installments > 0:
             remaining_amount = selling_price - down_payment
             installment_amount = remaining_amount / installments
             results['installment_amount'] = installment_amount
-    results['cost_price'] = cost_price
-    results['selling_price'] = selling_price
-    results['profit'] = results.get('profit', 0)
-    results['installment_amount'] = results.get('installment_amount', 0)
+
     return results
+
 
 def calculate_istisna_values(variables):
     """

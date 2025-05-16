@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SendIcon, Upload, FileText, ChevronDown, Table, Calculator } from "lucide-react";
+import { SendIcon, Upload, FileText, ChevronDown, Table, Calculator, Trash2 } from "lucide-react";
+import { CustomModal } from "@/components/ui/custom-modal";
 import ReactMarkdown from 'react-markdown';
 import { ScrollToTop } from "../ScrollToTop";
 import * as pdfjsLib from "pdfjs-dist";
@@ -59,6 +60,7 @@ export default function UseCaseSection() {
   const [expandedThinking, setExpandedThinking] = useState<number[]>([]);
   const [expandedSections, setExpandedSections] = useState<{[key: number]: string[]}>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
 
   // Load chat history and pending state from localStorage when component mounts
   useEffect(() => {
@@ -152,7 +154,11 @@ export default function UseCaseSection() {
           const text = await page.getTextContent();
           // Use a type assertion with a comment to explain why we're using 'any'
           // pdfjsLib types are complex and we're just extracting the 'str' property
-          const pageText = text.items.map((item: any) => (item as { str: string }).str).join(' ');
+          // Use type assertion for PDF.js text items which have complex types
+          const pageText = text.items.map((item) => {
+            // Check if the item has a 'str' property (TextItem) before accessing it
+            return 'str' in item ? item.str : '';
+          }).join(' ');
           textContent.push(pageText);
         }
 
@@ -180,7 +186,16 @@ export default function UseCaseSection() {
   };
 
   // Function to extract thinking process and structured data from response
-  const parseResponse = (responseData: any): { 
+  // Define a proper type for the API response data
+  interface ApiResponse {
+    response?: string;
+    thinking_process?: string;
+    explanation?: string;
+    structured_response?: StructuredFinanceResponse;
+    [key: string]: unknown;
+  }
+
+  const parseResponse = (responseData: ApiResponse): { 
     thinking: string | undefined, 
     answer: string,
     structuredResponse?: StructuredFinanceResponse
@@ -576,19 +591,10 @@ export default function UseCaseSection() {
         <div className="mb-4 flex justify-end">
           <Button 
             variant="outline" 
-            className="text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={() => {
-              if (window.confirm('Are you sure you want to clear your chat history?')) {
-                localStorage.removeItem('useCaseChatHistory');
-                setMessages([
-                  {
-                    role: "assistant",
-                    content: "Hello! I'm your ISDB Islamic finance assistant. Ask me about any Islamic finance use case or scenario."
-                  }
-                ]);
-              }
-            }}
+            className="text-sm text-red-700 hover:text-red-800 hover:bg-red-50"
+            onClick={() => setClearModalOpen(true)}
           >
+            <Trash2 className="mr-2 h-4 w-4" />
             Clear Chat History
           </Button>
         </div>
@@ -621,7 +627,15 @@ export default function UseCaseSection() {
                           }`}
                       >
                         <div className="p-4 bg-amber-50 text-amber-900 border border-t-0 border-amber-200 rounded-b-lg">
-                          <ReactMarkdown>{message.thinking}</ReactMarkdown>
+                          <ReactMarkdown components={{
+                            // Make numbers bold in thinking process
+                            text: ({...props}) => {
+                              const text = props.children as string;
+                              // Replace numbers with bold numbers
+                              const formattedText = text.replace(/([0-9,.]+)/g, '**$1**');
+                              return <ReactMarkdown>{formattedText}</ReactMarkdown>;
+                            }
+                          }}>{message.thinking}</ReactMarkdown>
                         </div>
                       </div>
                     </div>
@@ -638,7 +652,13 @@ export default function UseCaseSection() {
                         : "bg-green-50 text-green-900"
                       }`}
                   >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
+                    <div className="markdown-content">
+                      {message.role === "user" ? (
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                      ) : (
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      )}
+                    </div>
                     
                     {/* Render structured financial data if available */}
                     {message.role === "assistant" && message.structuredResponse && 
@@ -731,6 +751,25 @@ export default function UseCaseSection() {
         </div>
       </div>
       <ScrollToTop />
+      
+      {/* Clear Chat History Modal */}
+      <CustomModal
+        isOpen={clearModalOpen}
+        onClose={() => setClearModalOpen(false)}
+        title="Clear Chat History"
+        description="Are you sure you want to clear your chat history? This action cannot be undone."
+        confirmText="Clear History"
+        cancelText="Cancel"
+        onConfirm={() => {
+          localStorage.removeItem('useCaseChatHistory');
+          setMessages([
+            {
+              role: "assistant",
+              content: "Hello! I'm your ISDB Islamic finance assistant. Ask me about any Islamic finance use case or scenario."
+            }
+          ]);
+        }}
+      />
     </div>
   );
 }

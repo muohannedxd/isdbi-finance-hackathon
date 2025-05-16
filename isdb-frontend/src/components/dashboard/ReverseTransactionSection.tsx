@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SendIcon, Upload, FileText, ChevronDown } from "lucide-react";
+import { SendIcon, Upload, FileText, ChevronDown, Trash2 } from "lucide-react";
+import { CustomModal } from "@/components/ui/custom-modal";
 import { ScrollToTop } from "../ScrollToTop";
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
@@ -98,6 +99,7 @@ export default function ReverseTransactionSection() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedThinking, setExpandedThinking] = useState<number[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
 
   const toggleThinking = (index: number) => {
     setExpandedThinking(prev =>
@@ -297,18 +299,9 @@ export default function ReverseTransactionSection() {
             <Button 
               variant="outline" 
               className="text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => {
-                if (window.confirm('Are you sure you want to clear your chat history?')) {
-                  localStorage.removeItem('reverseTransactionChatHistory');
-                  setMessages([
-                    {
-                      role: "assistant",
-                      content: "Please describe a financial transaction, and I'll analyze it from an Islamic finance perspective."
-                    }
-                  ]);
-                }
-              }}
+              onClick={() => setClearModalOpen(true)}
             >
+              <Trash2 className="mr-2 h-4 w-4" />
               Clear Chat History
             </Button>
           </div>
@@ -509,6 +502,25 @@ export default function ReverseTransactionSection() {
         </div>
       </div>
       <ScrollToTop />
+      
+      {/* Clear Chat History Modal */}
+      <CustomModal
+        isOpen={clearModalOpen}
+        onClose={() => setClearModalOpen(false)}
+        title="Clear Chat History"
+        description="Are you sure you want to clear your chat history? This action cannot be undone."
+        confirmText="Clear History"
+        cancelText="Cancel"
+        onConfirm={() => {
+          localStorage.removeItem('reverseTransactionChatHistory');
+          setMessages([
+            {
+              role: "assistant",
+              content: "Please describe a financial transaction, and I'll analyze it from an Islamic finance perspective."
+            }
+          ]);
+        }}
+      />
     </div>
   );
 }

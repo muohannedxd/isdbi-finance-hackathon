@@ -339,7 +339,7 @@ export default function DashboardSection() {
           
           {useCaseStats.topKeywords.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-4">Top Keywords</h3>
+              <h3 className="text-lg font-semibold ml-4 mb-4">Top Keywords</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={useCaseStats.topKeywords}>
                   <CartesianGrid strokeDasharray="3 3" />
