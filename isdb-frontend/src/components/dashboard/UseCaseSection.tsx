@@ -518,19 +518,17 @@ export default function UseCaseSection() {
                         p: ({ children }) => {
                           return <p className="mb-3 whitespace-pre-line">{children}</p>;
                         },
-                        // Properly render tables
-                        table: ({ children }) => {
-                          return (
-                            <div className="overflow-x-auto my-4">
-                              <table className="min-w-full divide-y divide-gray-200">{children}</table>
-                            </div>
-                          );
-                        },
+                        // Properly render tables with enhanced styling for complex tables
+                        table: ({ children }) => (
+                          <div className="overflow-x-auto my-4">
+                            <table className="min-w-full border border-gray-300 divide-y divide-gray-300">{children}</table>
+                          </div>
+                        ),
                         thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
                         tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
                         tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
-                        th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-600">{children}</th>,
-                        td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>
+                        th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-700 border-b border-r last:border-r-0">{children}</th>,
+                        td: ({ children }) => <td className="px-3 py-2 text-sm border-r last:border-r-0 whitespace-pre-wrap">{children}</td>
                       }}>{content}</ReactMarkdown>
                     </div>
                   </div>
@@ -924,20 +922,34 @@ export default function UseCaseSection() {
                           components={{
                             // Make numbers and key financial terms bold in response
                             p: ({ children }) => {
-                              return <p className="mb-3">{children}</p>;
+                              return <p className="mb-3 whitespace-pre-line">{children}</p>;
                             },
                             strong: ({ children }) => <span className="font-bold">{children}</span>,
-                            // Properly render tables
+                            pre: ({ children }) => <pre className="whitespace-pre-wrap">{children}</pre>,
+                            code: ({ node, inline, className, children, ...props }) => {
+                              return inline ? (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              ) : (
+                                <pre className="whitespace-pre-wrap overflow-x-auto p-2 bg-gray-50 rounded-md my-2">
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                </pre>
+                              );
+                            },
+                            // Properly render tables with enhanced styling for complex tables
                             table: ({ children }) => (
                               <div className="overflow-x-auto my-4">
-                                <table className="min-w-full divide-y divide-gray-200">{children}</table>
+                                <table className="min-w-full border border-gray-300 divide-y divide-gray-300">{children}</table>
                               </div>
                             ),
                             thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
                             tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
                             tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
-                            th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-600">{children}</th>,
-                            td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>,
+                            th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-700 border-b border-r last:border-r-0">{children}</th>,
+                            td: ({ children }) => <td className="px-3 py-2 text-sm border-r last:border-r-0 whitespace-pre-wrap">{children}</td>,
                             text: ({ ...props }) => {
                               const text = props.children as string;
                               
