@@ -65,9 +65,15 @@ export default function UseCaseSection() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedThinking, setExpandedThinking] = useState<number[]>([]);
-  const [expandedSections, setExpandedSections] = useState<{[key: number]: string[]}>({});
+  const [expandedSections, setExpandedSections] = useState<{ [key: number]: string[] }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [clearModalOpen, setClearModalOpen] = useState(false);
+  // New state for validation
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [, setCurrentValidation] = useState<{ messageIndex: number, query: string, response: string } | null>(null);
+  const [validatedMessages, setValidatedMessages] = useState<number[]>([]);
+  const [, setValidationLoading] = useState(false);
+  const [validationResult, setValidationResult] = useState<{ success: boolean, message: string, standard_type?: string } | null>(null);
 
   // Load chat history and pending state from localStorage when component mounts
   useEffect(() => {
@@ -82,7 +88,7 @@ export default function UseCaseSection() {
         console.error('Error parsing saved chat history:', error);
       }
     }
-    
+
     // Check if there's a pending request
     const pendingState = localStorage.getItem('useCasePendingState');
     if (pendingState) {
@@ -103,7 +109,7 @@ export default function UseCaseSection() {
         localStorage.removeItem('useCasePendingState');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save chat history to localStorage whenever messages change
@@ -112,11 +118,11 @@ export default function UseCaseSection() {
     if (messages.length > 1) {
       localStorage.setItem('useCaseChatHistory', JSON.stringify(messages));
     }
-    
+
     // Scroll to bottom when messages change
     scrollToBottom();
   }, [messages]);
-  
+
   // Function to scroll to the bottom of the chat
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -202,8 +208,8 @@ export default function UseCaseSection() {
     [key: string]: unknown;
   }
 
-  const parseResponse = (responseData: ApiResponse): { 
-    thinking: string | undefined, 
+  const parseResponse = (responseData: ApiResponse): {
+    thinking: string | undefined,
     answer: string,
     structuredResponse?: StructuredFinanceResponse
   } => {
@@ -215,10 +221,10 @@ export default function UseCaseSection() {
         structuredResponse: responseData.structured_response
       };
     }
-    
+
     // Otherwise, check if there's a traditional text response with thinking tags
     const responseText = responseData.response || "Error processing your request";
-    
+
     // Check if response contains <think> tags
     const thinkRegex = /<think>([\s\S]*?)<\/think>/;
     const thinkMatch = responseText.match(thinkRegex);
@@ -268,7 +274,7 @@ export default function UseCaseSection() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
+
       // Clear the pending state in localStorage
       localStorage.removeItem('useCasePendingState');
     } catch (error) {
@@ -277,7 +283,7 @@ export default function UseCaseSection() {
         role: "assistant",
         content: "Sorry, there was an error processing your request. Please try again."
       }]);
-      
+
       // Clear the pending state in localStorage
       localStorage.removeItem('useCasePendingState');
     } finally {
@@ -294,13 +300,13 @@ export default function UseCaseSection() {
     console.log('Sending text:', contentToSend);
 
     // Add user message - preserve newlines in the displayed message
-    const userMessage: Message = { 
-      role: "user", 
+    const userMessage: Message = {
+      role: "user",
       content: input,
-      timestamp: Date.now() 
+      timestamp: Date.now()
     };
     setMessages(prev => [...prev, userMessage]);
-    
+
     // Clear input and reset textarea height
     setInput("");
     // Reset textarea to single row after sending
@@ -308,10 +314,10 @@ export default function UseCaseSection() {
     if (textareaElement) {
       textareaElement.rows = 1;
     }
-    
+
     setSelectedFile(null);
     setIsLoading(true);
-    
+
     // Save the pending state to localStorage
     localStorage.setItem('useCasePendingState', JSON.stringify({
       isPending: true,
@@ -341,7 +347,7 @@ export default function UseCaseSection() {
         structuredResponse: parsedResponse.structuredResponse,
         timestamp: Date.now()
       }]);
-      
+
       // Clear the pending state in localStorage
       localStorage.removeItem('useCasePendingState');
     } catch (error) {
@@ -350,7 +356,7 @@ export default function UseCaseSection() {
         role: "assistant",
         content: "Sorry, there was an error processing your request. Please try again."
       }]);
-      
+
       // Clear the pending state in localStorage
       localStorage.removeItem('useCasePendingState');
     } finally {
@@ -366,33 +372,33 @@ export default function UseCaseSection() {
   };
 
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('en-US', { 
-      style: 'currency', 
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2 
+      maximumFractionDigits: 2
     }).format(value);
   };
 
   // Render structured financial data sections
   const renderStructuredData = (message: Message, index: number) => {
     if (!message.structuredResponse) return null;
-    
+
     const { calculations, journal_entries, ledger_summary, amortizable_amount_table } = message.structuredResponse;
     const isExpanded = expandedSections[index] || [];
-    
+
     // Check if this is a percentage-of-completion scenario for special handling
-    const isPOCScenario = ledger_summary && ledger_summary.length > 0 && 
-                         (ledger_summary.some(row => row.Quarter && String(row.Quarter).startsWith('Q')) ||
-                          message.content.toLowerCase().includes('istisna') ||
-                          message.content.toLowerCase().includes('percentage of completion'));
-    
+    const isPOCScenario = ledger_summary && ledger_summary.length > 0 &&
+      (ledger_summary.some(row => row.Quarter && String(row.Quarter).startsWith('Q')) ||
+        message.content.toLowerCase().includes('istisna') ||
+        message.content.toLowerCase().includes('percentage of completion'));
+
     return (
       <div className="space-y-4 mt-4">
         {/* Calculations Section */}
         {calculations && calculations.length > 0 && (
           <div className="w-full border rounded-lg overflow-hidden bg-white">
-            <button 
+            <button
               onClick={() => toggleSection(index, 'calculations')}
               className="flex items-center justify-between w-full p-3 bg-blue-50 text-blue-800 hover:bg-blue-100 transition-colors"
             >
@@ -416,8 +422,8 @@ export default function UseCaseSection() {
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="p-3">{calc.label}</td>
                         <td className="p-3 text-right font-medium">
-                          {calc.label.toLowerCase().includes('completion') 
-                            ? `${calc.value}%` 
+                          {calc.label.toLowerCase().includes('completion')
+                            ? `${calc.value}%`
                             : formatCurrency(calc.value)}
                         </td>
                       </tr>
@@ -432,7 +438,7 @@ export default function UseCaseSection() {
         {/* Amortizable Amount Table Section - For Ijarah */}
         {amortizable_amount_table && amortizable_amount_table.length > 0 && (
           <div className="w-full border rounded-lg overflow-hidden bg-white">
-            <button 
+            <button
               onClick={() => toggleSection(index, 'amortizable')}
               className="flex items-center justify-between w-full p-3 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
             >
@@ -468,7 +474,7 @@ export default function UseCaseSection() {
         {/* Journal Entries Section */}
         {journal_entries && journal_entries.length > 0 && (
           <div className="w-full border rounded-lg overflow-hidden bg-white">
-            <button 
+            <button
               onClick={() => toggleSection(index, 'journal')}
               className="flex items-center justify-between w-full p-3 bg-green-50 text-green-800 hover:bg-green-100 transition-colors"
             >
@@ -506,7 +512,7 @@ export default function UseCaseSection() {
         {/* Ledger Summary Section - Enhanced for Percentage-of-Completion */}
         {ledger_summary && ledger_summary.length > 0 && (
           <div className="w-full border rounded-lg overflow-hidden bg-white">
-            <button 
+            <button
               onClick={() => toggleSection(index, 'ledger')}
               className="flex items-center justify-between w-full p-3 bg-purple-50 text-purple-800 hover:bg-purple-100 transition-colors"
             >
@@ -542,7 +548,7 @@ export default function UseCaseSection() {
                     </tbody>
                   </table>
                 )}
-                
+
                 {/* Percentage-of-Completion Progress Visualization */}
                 {isPOCScenario && (
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg">
@@ -552,14 +558,14 @@ export default function UseCaseSection() {
                         .filter(row => {
                           // Handle both 'Quarter' and 'Stage' fields for different formats
                           const period = row.Quarter || row.Stage || '';
-                          return (String(period).startsWith('Q') || String(period).startsWith('Stage')) && 
-                                 period !== 'Total';
+                          return (String(period).startsWith('Q') || String(period).startsWith('Stage')) &&
+                            period !== 'Total';
                         })
                         .map((row, i) => {
                           // Handle both Quarter and Stage formats
                           const period = row.Quarter || row.Stage || '';
                           let percentage = 0;
-                          
+
                           if (String(period).startsWith('Q')) {
                             // For Quarter format: Q1=25%, Q2=50%, etc.
                             const quarterNum = Number(String(period).replace('Q', ''));
@@ -577,7 +583,7 @@ export default function UseCaseSection() {
                                 <span className="text-purple-700">{percentage}% Complete</span>
                               </div>
                               <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div 
+                                <div
                                   className="h-full bg-purple-600 rounded-full"
                                   style={{ width: `${percentage}%` }}
                                 />
@@ -592,7 +598,7 @@ export default function UseCaseSection() {
                         })
                       }
                     </div>
-                    
+
                     {/* Summary Stats */}
                     {ledger_summary.find(row => row.Quarter === 'Total' || row.Stage === 'Total') && (
                       <div className="mt-6 border-t pt-4">
@@ -624,24 +630,62 @@ export default function UseCaseSection() {
     );
   };
 
+  // Function to handle validation of AI responses
+  const handleValidateResponse = async (query: string, response: string, messageIndex: number) => {
+    setValidationLoading(true);
+
+    try {
+      const validationResponse = await fetch('http://127.0.0.1:5001/usecase/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query_text: query,
+          response_text: response
+        }),
+      });
+
+      const data = await validationResponse.json();
+
+      // Update state with validation result
+      setValidationResult(data);
+      setValidationModalOpen(true);
+
+      // Mark the message as validated if successful
+      if (data.success) {
+        setValidatedMessages(prev => [...prev, messageIndex]);
+      }
+    } catch (error) {
+      console.error('Error validating response:', error);
+      setValidationResult({
+        success: false,
+        message: "There was an error validating the response. Please try again."
+      });
+      setValidationModalOpen(true);
+    } finally {
+      setValidationLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center">
-      <h2 className="text-3xl font-bold mb-6">Use Case Analysis</h2>
-      
-      {/* Clear history button */}
-      {messages.length > 1 && (
-        <div className="mb-4 flex justify-end">
-          <Button 
-            variant="outline" 
-            className="text-sm text-red-700 hover:text-red-800 hover:bg-red-50"
-            onClick={() => setClearModalOpen(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Clear Chat History
-          </Button>
-        </div>
-      )}
+        <h2 className="text-3xl font-bold mb-6">Use Case Analysis</h2>
+
+        {/* Clear history button */}
+        {messages.length > 1 && (
+          <div className="mb-4 flex justify-end">
+            <Button
+              variant="outline"
+              className="text-sm text-red-700 hover:text-red-800 hover:bg-red-50"
+              onClick={() => setClearModalOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear Chat History
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card className="flex-1 mb-4 overflow-hidden flex flex-col">
@@ -665,14 +709,14 @@ export default function UseCaseSection() {
                       </button>
                       <div
                         className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out ${expandedThinking.includes(index)
-                            ? 'max-h-[500px] opacity-100'
-                            : 'max-h-0 opacity-0'
+                          ? 'max-h-[500px] opacity-100'
+                          : 'max-h-0 opacity-0'
                           }`}
                       >
                         <div className="p-4 bg-amber-50 text-amber-900 border border-t-0 border-amber-200 rounded-b-lg">
                           <ReactMarkdown components={{
                             // Make numbers bold in thinking process
-                            text: ({...props}) => {
+                            text: ({ ...props }) => {
                               const text = props.children as string;
                               // Replace numbers with bold numbers
                               const formattedText = text.replace(/([0-9,.]+)/g, '**$1**');
@@ -691,17 +735,49 @@ export default function UseCaseSection() {
                 >
                   <div
                     className={`max-w-[80%] rounded-lg p-4 ${message.role === "user"
-                        ? "bg-green-600 text-white"
-                        : "bg-green-50 text-green-900"
-                      }`}
+                      ? "bg-green-600 text-white"
+                      : "bg-green-50 text-green-900"
+                      } relative`}
                   >
+                    {/* Add validation button for AI responses */}
+                    {message.role === "assistant" && index > 0 && !validatedMessages.includes(index) && (
+                      <button
+                        onClick={() => {
+                          // Find the preceding user message
+                          const userMessageIndex = messages.slice(0, index).reverse()
+                            .findIndex(msg => msg.role === "user");
+
+                          if (userMessageIndex >= 0) {
+                            const userMessage = messages[index - userMessageIndex - 1];
+                            setCurrentValidation({
+                              messageIndex: index,
+                              query: userMessage.content,
+                              response: message.content
+                            });
+                            handleValidateResponse(userMessage.content, message.content, index);
+                          }
+                        }}
+                        className="absolute top-1 right-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs py-1 px-2 rounded"
+                        title="Validate this response as a good example"
+                      >
+                        Validate ✓
+                      </button>
+                    )}
+
+                    {/* Show validation badge if message is validated */}
+                    {message.role === "assistant" && validatedMessages.includes(index) && (
+                      <div className="absolute top-1 right-1 bg-green-100 text-green-800 text-xs py-1 px-2 rounded flex items-center">
+                        <span className="mr-1">✓</span> Validated
+                      </div>
+                    )}
+
                     <div className="markdown-content">
                       {message.role === "user" ? (
                         <div className="whitespace-pre-wrap">{message.content}</div>
                       ) : (
                         <ReactMarkdown components={{
                           // Make numbers bold in response
-                          text: ({...props}) => {
+                          text: ({ ...props }) => {
                             const text = props.children as string;
                             // Replace numbers with bold numbers
                             const formattedText = text.replace(/([0-9,.]+)/g, '**$1**');
@@ -710,9 +786,9 @@ export default function UseCaseSection() {
                         }}>{message.content}</ReactMarkdown>
                       )}
                     </div>
-                    
+
                     {/* Render structured financial data if available */}
-                    {message.role === "assistant" && message.structuredResponse && 
+                    {message.role === "assistant" && message.structuredResponse &&
                       renderStructuredData(message, index)
                     }
                   </div>
@@ -755,7 +831,7 @@ export default function UseCaseSection() {
                 e.preventDefault();
                 const pastedText = e.clipboardData.getData('text');
                 setInput(prev => prev + pastedText);
-                
+
                 // Adjust rows after paste
                 setTimeout(() => {
                   const textarea = e.target as HTMLTextAreaElement;
@@ -802,7 +878,7 @@ export default function UseCaseSection() {
         </div>
       </div>
       <ScrollToTop />
-      
+
       {/* Clear Chat History Modal */}
       <CustomModal
         isOpen={clearModalOpen}
@@ -821,6 +897,17 @@ export default function UseCaseSection() {
           ]);
         }}
       />
+
+      {/* Validation Result Modal */}
+      <CustomModal
+        isOpen={validationModalOpen}
+        onClose={() => setValidationModalOpen(false)}
+        title="Validation Result"
+        description={validationResult ? validationResult.message : "No validation result available."}
+        cancelText="Cancel"
+        confirmText="Okay"
+        onConfirm={() => setValidationModalOpen(false)}
+        color="green" />
     </div>
   );
 }

@@ -44,6 +44,9 @@ def process_query(query_text, embedding_model=DEFAULT_EMBEDDING_MODEL, llm_model
     
     # Handle Ijarah cases with direct calculation
     if standard_type == STANDARD_TYPE_IJARAH:
+        full_prompt = get_prompt_for_standard(STANDARD_TYPE_IJARAH)
+        print("Full Ijarah prompt including examples:")
+        print(full_prompt)
         variables = extract_ijarah_variables(query_text)
         if 'purchase_price' in variables and 'yearly_rental' in variables and 'lease_term' in variables:
             calculations = calculate_ijarah_values(variables)
@@ -144,4 +147,42 @@ def query_handler():
         })
     except Exception as e:
         logger.error(f"Error in /usecase: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@usecase_bp.route('/validate', methods=['POST'])
+def validate_response():
+    """Handle validation of a response by the user"""
+    data = request.json
+    query_text = data.get("query_text")
+    response_text = data.get("response_text")
+    
+    if not query_text or not response_text:
+        return jsonify({"error": "Both query_text and response_text are required"}), 400
+    
+    try:
+        # Detect which standard applies to this query
+        standard_type = detect_standard_type(query_text)
+        
+        # Import here to avoid circular import
+        from utils.examples import add_example, STANDARD_MAPPINGS
+        
+        # Add as validated example
+        success = add_example(standard_type, query_text, response_text)
+        
+        if success:
+            # Get the standard name for display
+            standard_name = STANDARD_MAPPINGS.get(standard_type, "Unknown")
+            return jsonify({
+                "success": True, 
+                "message": f"Response validated and saved as an example for {standard_name}",
+                "standard_type": standard_type
+            })
+        else:
+            return jsonify({
+                "success": False, 
+                "message": "Failed to save validated example"
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error in /usecase/validate: {str(e)}")
         return jsonify({"error": str(e)}), 500

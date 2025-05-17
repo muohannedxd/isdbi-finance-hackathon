@@ -8,6 +8,7 @@ interface CustomModalProps {
   confirmText: string;
   cancelText: string;
   onConfirm: () => void;
+  color?: 'red' | 'green' | 'blue';
 }
 
 export function CustomModal({
@@ -18,8 +19,22 @@ export function CustomModal({
   confirmText,
   cancelText,
   onConfirm,
+  color = 'red',
 }: CustomModalProps) {
   if (!isOpen) return null;
+
+  // Define button color classes based on the color prop
+  const getButtonClasses = () => {
+    switch (color) {
+      case 'green':
+        return 'bg-green-600 hover:bg-green-700 text-white';
+      case 'blue':
+        return 'bg-blue-600 hover:bg-blue-700 text-white';
+      case 'red':
+      default:
+        return 'bg-red-600 hover:bg-red-700 text-white';
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -37,15 +52,16 @@ export function CustomModal({
         </div>
         
         <div className="flex justify-end space-x-2">
+          {cancelText && (
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+            >
+              {cancelText}
+            </Button>
+          )}
           <Button 
-            variant="outline" 
-            onClick={onClose}
-          >
-            {cancelText}
-          </Button>
-          <Button 
-            className="bg-red-700 hover:bg-red-800"
-            variant="destructive"
+            className={getButtonClasses()}
             onClick={() => {
               onConfirm();
               onClose();

@@ -322,25 +322,42 @@ EXPLANATION
 [Provide concise explanation of the accounting treatment and its compliance with Islamic finance principles]
 """
 
-def get_prompt_for_standard(standard_type):
+def get_prompt_for_standard(standard_type, include_examples=True):
     """
     Get the appropriate prompt template for the detected standard.
     
     Args:
         standard_type (str): The standard type to get prompt for
+        include_examples (bool): Whether to include validated examples in the prompt
         
     Returns:
         str: The prompt template for the standard
     """
+    prompt_template = ""
+    
     if standard_type == STANDARD_TYPE_MURABAHA:
-        return MURABAHA_PROMPT_TEMPLATE
+        prompt_template = MURABAHA_PROMPT_TEMPLATE
     elif standard_type == STANDARD_TYPE_SALAM:
-        return SALAM_PROMPT_TEMPLATE
+        prompt_template = SALAM_PROMPT_TEMPLATE
     elif standard_type == STANDARD_TYPE_ISTISNA:
-        return ISTISNA_PROMPT_TEMPLATE
+        prompt_template = ISTISNA_PROMPT_TEMPLATE
     elif standard_type == STANDARD_TYPE_IJARAH:
-        return IJARAH_PROMPT_TEMPLATE
+        prompt_template = IJARAH_PROMPT_TEMPLATE
     elif standard_type == STANDARD_TYPE_SUKUK:
-        return SUKUK_PROMPT_TEMPLATE
+        prompt_template = SUKUK_PROMPT_TEMPLATE
     else:
         return PROMPT_TEMPLATE
+
+    # If examples should be included, add them to the prompt
+    if include_examples:
+        # Import here to avoid circular import
+        from utils.examples import get_examples_as_few_shot
+        examples = get_examples_as_few_shot(standard_type)
+        if examples:
+            # Insert examples before the SCENARIO section
+            scenario_marker = "SCENARIO:"
+            if scenario_marker in prompt_template:
+                parts = prompt_template.split(scenario_marker)
+                prompt_template = f"{parts[0]}\nVALIDATED EXAMPLES:\n{examples}\n\n{scenario_marker}{parts[1]}"
+    
+    return prompt_template
