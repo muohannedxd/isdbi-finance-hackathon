@@ -139,6 +139,15 @@ def extract_istisna_variables(query_text):
     cost_match = re.search(r'[Cc]ost:? \$?([0-9,.]+)', query_text)
     if cost_match:
         extracted_values['total_cost'] = float(cost_match.group(1).replace(',', ''))
+        
+    # Look for specific payment patterns in parallel istisna'a scenarios
+    upfront_match = re.search(r'\$?([0-9,.]+)\s*upfront', query_text, re.IGNORECASE)
+    if upfront_match:
+        extracted_values['upfront_payment'] = float(upfront_match.group(1).replace(',', ''))
+        
+    completion_match = re.search(r'\$?([0-9,.]+)\s*on completion', query_text, re.IGNORECASE)
+    if completion_match:
+        extracted_values['completion_payment'] = float(completion_match.group(1).replace(',', ''))
     
     # Then try the general patterns
     for key, pattern in patterns.items():

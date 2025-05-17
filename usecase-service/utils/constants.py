@@ -157,83 +157,90 @@ Accounting Method: Percentage of Completion Method
 
 EXTRACTED VARIABLES
 ------------------------------
-[List all monetary values, terms, and relevant financial data extracted from the scenario]
+[List all monetary values, contract terms, payment structures, and financial variables derived from the scenario]
 
 CALCULATIONS
 ------------------------------
-Step 1: Contract Value Determination
-  Total Contract Value = [Extract exact amount from scenario]
-  Total Cost = [Extract exact amount from scenario]
-  Total Expected Profit = Total Contract Value - Total Cost = [Show full calculation]
-  Profit Margin = (Expected Profit / Contract Value) × 100% = [Show full calculation]
+Step 1: Contract Value and Profit Determination
+  - Total Contract Value = [amount]
+  - Total Estimated Cost = [amount]
+  - Expected Profit = Contract Value - Total Cost = [calculation]
+  - Profit Margin = (Expected Profit / Contract Value) × 100 = [calculation]
 
-Step 2: Project Timeline and Payment Structure
-  [Analyze and describe the specific payment terms from the scenario]
-  [Identify if it's a parallel Istisna'a structure and explain the cash flows]
+Step 2: Payment Terms and Timeline
+  - Delivery Period: [e.g., 12 months or 4 quarters]
+  - Payment Schedule: [Describe structure – e.g., Upfront %, Monthly, On Completion, etc.]
+  - Parallel Istisna'a: [Yes/No – explain if applicable]
 
-Step 3: Quarterly Progress and Recognition
-  [Use the actual timeline from the scenario - could be quarterly, monthly, or other periods]
-  
-  Period | Cumulative Cost | % Completion | Revenue | Profit
-  [List each period with exact calculated values]
+Step 3: Periodic Progress and Recognition
 
-For each period, show these detailed calculations:
-- Cumulative Cost = [Show how this is determined from the scenario]
-- Percentage of completion = Cumulative Cost / Total Estimated Cost = [Show full calculation]
-- Revenue Recognition = Total Contract Value × Percentage of Completion = [Show full calculation]
-- Incremental Revenue (for this period) = Current Revenue - Previously Recognized Revenue = [Show full calculation]
-- Profit Recognition = Total Expected Profit × Percentage of Completion = [Show full calculation]
-- Incremental Profit (for this period) = Current Profit - Previously Recognized Profit = [Show full calculation]
+  Period | Cumulative Cost | % Completion | Revenue | Profit | Incremental Revenue | Incremental Profit
+  -------|------------------|--------------|---------|--------|----------------------|---------------------
+  [List all periods with values calculated]
+
+[For each period:]
+- Cumulative Cost = [how derived]
+- Percentage Completion = Cumulative Cost / Total Cost = [calculation]
+- Revenue = Contract Value × % Completion = [calculation]
+- Incremental Revenue = Current Revenue - Prior Revenue = [calculation]
+- Profit = Expected Profit × % Completion = [calculation]
+- Incremental Profit = Current Profit - Prior Profit = [calculation]
 
 JOURNAL ENTRIES
 ------------------------------
-[For each period identified in the scenario, show the exact journal entries with calculated amounts]
+[Show entries for each period using this format:]
 
-Period 1 - [Exact % Completion] (Cumulative Cost: [Amount]):
+Period [X] - [X]% Completion:
 
-Cost Incurred:
-Dr. Work-in-Progress – Istisna'a     [Exact amount of cost incurred in this period]
-    Cr. Bank / Payables              [Exact amount of cost incurred in this period]
+Dr. Work-in-Progress – Istisna'a     [amount]
+    Cr. Bank / Payables              [amount]
 
-Revenue and Profit Recognition:
-Dr. Istisna'a Receivable – Client    [Exact amount of revenue recognized in this period]
-    Cr. Istisna'a Revenue            [Exact amount of revenue recognized in this period]
+Dr. Istisna'a Receivable             [amount]
+    Cr. Istisna'a Revenue            [amount]
 
-Dr. Istisna'a Cost of Sales          [Exact amount of cost recognized in this period]
-    Cr. Work-in-Progress             [Exact amount of cost recognized in this period]
+Dr. Istisna'a Cost of Sales          [amount]
+    Cr. Work-in-Progress             [amount]
 
-[Repeat for all periods with exact calculated amounts]
-
-Payment Entries (when applicable):
-[Show journal entries for all client payments and contractor payments with exact amounts based on the scenario]
+[Also include any client or contractor payments made during this period]
 
 EXPLANATION
 ------------------------------
-[Provide a detailed explanation of how the percentage-of-completion method is applied to this specific scenario]
+[Detailed explanation covering:]
 
-1. Explain how the contract structure in this specific scenario aligns with Istisna'a principles
-2. Justify the recognition of revenue and profit over time rather than at completion
-3. Explain how the specific payment terms in this scenario affect the accounting treatment
-4. If it's a parallel Istisna'a structure, explain the accounting implications for the intermediary
-5. Reference specific clauses from AAOIFI FAS 10 that support this accounting treatment
-6. Explain any unique aspects of this specific scenario and how they are addressed in the accounting treatment
+1. How the contract satisfies Istisna'a principles
+2. Why revenue/profit is recognized over time under FAS 10
+3. How the specific payment structure affects accounting entries
+4. Parallel Istisna'a implications (if any)
+5. References to relevant AAOIFI clauses
+6. Any assumptions or special considerations applied
 
 SUMMARY LEDGER
 ------------------------------
-[Provide a summary ledger showing the cumulative effect of all transactions over the project lifecycle]
+[Summarized ledger balances:]
 
-Work-in-Progress Account:
-[Show opening balance, all debits, all credits, and closing balance]
+Work-in-Progress – Istisna'a:
+  Opening Balance: [ ]
+  Dr: [ ]
+  Cr: [ ]
+  Closing Balance: [ ]
 
-Istisna'a Receivable Account:
-[Show opening balance, all debits, all credits, and closing balance]
+Istisna'a Receivable:
+  Opening Balance: [ ]
+  Dr: [ ]
+  Cr: [ ]
+  Closing Balance: [ ]
 
-Istisna'a Revenue Account:
-[Show opening balance, all debits, all credits, and closing balance]
+Istisna'a Revenue:
+  Opening Balance: [ ]
+  Cr: [ ]
+  Closing Balance: [ ]
 
-Istisna'a Cost of Sales Account:
-[Show opening balance, all debits, all credits, and closing balance]
+Istisna'a Cost of Sales:
+  Opening Balance: [ ]
+  Dr: [ ]
+  Closing Balance: [ ]
 """
+
 
 IJARAH_PROMPT_TEMPLATE = """
 You are an Islamic finance accounting specialist. Analyze the following Ijarah Muntahia Bittamleek (lease ending with ownership) scenario and provide structured accounting analysis.

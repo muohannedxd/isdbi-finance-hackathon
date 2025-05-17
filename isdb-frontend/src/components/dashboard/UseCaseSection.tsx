@@ -42,6 +42,13 @@ interface StructuredFinanceResponse {
   journal_entries?: JournalEntry[];
   ledger_summary?: LedgerRow[];
   amortizable_amount_table?: AmortizableTableEntry[];
+  sections?: {
+    analysis?: string;
+    variables?: string;
+    calculations?: string;
+    journal_entries?: string;
+    explanation?: string;
+  };
 }
 
 // Interface to represent message format with optional thinking field
@@ -384,7 +391,7 @@ export default function UseCaseSection() {
   const renderStructuredData = (message: Message, index: number) => {
     if (!message.structuredResponse) return null;
 
-    const { calculations, journal_entries, ledger_summary, amortizable_amount_table } = message.structuredResponse;
+    const { calculations, journal_entries, ledger_summary, amortizable_amount_table, sections } = message.structuredResponse;
     const isExpanded = expandedSections[index] || [];
 
     // Check if this is a percentage-of-completion scenario for special handling
@@ -392,11 +399,88 @@ export default function UseCaseSection() {
       (ledger_summary.some(row => row.Quarter && String(row.Quarter).startsWith('Q')) ||
         message.content.toLowerCase().includes('istisna') ||
         message.content.toLowerCase().includes('percentage of completion'));
+    
+    // Check if this is a structured response with detailed sections
+    const hasDetailedSections = sections && Object.keys(sections).length > 0;
+    
+    // Standard background colors for different section types
+    const sectionColors: Record<string, { bg: string, hover: string, text: string }> = {
+      'analysis': { bg: 'bg-indigo-50', hover: 'hover:bg-indigo-100', text: 'text-indigo-800' },
+      'variables': { bg: 'bg-blue-50', hover: 'hover:bg-blue-100', text: 'text-blue-800' },
+      'calculations': { bg: 'bg-green-50', hover: 'hover:bg-green-100', text: 'text-green-800' },
+      'journal_entries': { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', text: 'text-amber-800' },
+      'explanation': { bg: 'bg-purple-50', hover: 'hover:bg-purple-100', text: 'text-purple-800' }
+    };
+    
+    // Section icons
+    const sectionIcons: Record<string, React.ReactNode> = {
+      'analysis': <FileText className="h-5 w-5 mr-2" />,
+      'variables': <FileText className="h-5 w-5 mr-2" />,
+      'calculations': <Calculator className="h-5 w-5 mr-2" />,
+      'journal_entries': <Table className="h-5 w-5 mr-2" />,
+      'explanation': <FileText className="h-5 w-5 mr-2" />
+    };
+    
+    // Display names for sections
+    const sectionDisplayNames: Record<string, string> = {
+      'analysis': 'Analysis',
+      'variables': 'Extracted Variables',
+      'calculations': 'Detailed Calculations',
+      'journal_entries': 'Journal Entries',
+    };
 
     return (
       <div className="space-y-4 mt-4">
-        {/* Calculations Section */}
-        {calculations && calculations.length > 0 && (
+        {/* Dynamic Sections */}
+        {hasDetailedSections && (
+          <>
+            {Object.entries(sections).map(([key, content]) => {
+              // Skip the explanation section as it's already displayed in the main message content
+              if (key === 'explanation' || !content) return null;
+              
+              return (
+                <div key={key} className="w-full border rounded-lg overflow-hidden bg-white">
+                  <button
+                    onClick={() => toggleSection(index, key)}
+                    className={`flex items-center justify-between w-full p-3 ${sectionColors[key]?.bg || 'bg-gray-50'} ${sectionColors[key]?.text || 'text-gray-800'} ${sectionColors[key]?.hover || 'hover:bg-gray-100'} transition-colors`}
+                  >
+                    <div className="flex items-center">
+                      {sectionIcons[key] || <FileText className="h-5 w-5 mr-2" />}
+                      <span className="font-medium">{sectionDisplayNames[key] || key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                    </div>
+                    <ChevronDown className={`h-5 w-5 transition-transform ${isExpanded.includes(key) ? 'rotate-180' : ''}`} />
+                  </button>
+                  <div className={`transition-all duration-300 ${isExpanded.includes(key) ? 'max-h-[500px] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                    <div className="p-4">
+                      <ReactMarkdown components={{
+                        // Preserve newlines in code blocks and paragraphs
+                        code: ({ node, inline, className, children, ...props }) => {
+                          return inline ? (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          ) : (
+                            <pre className="whitespace-pre-wrap">
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            </pre>
+                          );
+                        },
+                        p: ({ children }) => {
+                          return <p className="mb-3 whitespace-pre-line">{children}</p>;
+                        }
+                      }}>{content}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+        
+        {/* Standard Calculations Section - Only show if not already included in detailed sections */}
+        {calculations && calculations.length > 0 && (!sections || !sections.calculations) && (
           <div className="w-full border rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => toggleSection(index, 'calculations')}
@@ -471,8 +555,8 @@ export default function UseCaseSection() {
           </div>
         )}
 
-        {/* Journal Entries Section */}
-        {journal_entries && journal_entries.length > 0 && (
+        {/* Journal Entries Section - Only show if not already included in detailed sections */}
+        {journal_entries && journal_entries.length > 0 && (!sections || !sections.journal_entries) && (
           <div className="w-full border rounded-lg overflow-hidden bg-white">
             <button
               onClick={() => toggleSection(index, 'journal')}

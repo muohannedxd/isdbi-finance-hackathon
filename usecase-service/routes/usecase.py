@@ -44,9 +44,6 @@ def process_query(query_text, embedding_model=DEFAULT_EMBEDDING_MODEL, llm_model
     
     # Handle Ijarah cases with direct calculation
     if standard_type == STANDARD_TYPE_IJARAH:
-        full_prompt = get_prompt_for_standard(STANDARD_TYPE_IJARAH)
-        print("Full Ijarah prompt including examples:")
-        print(full_prompt)
         variables = extract_ijarah_variables(query_text)
         if 'purchase_price' in variables and 'yearly_rental' in variables and 'lease_term' in variables:
             calculations = calculate_ijarah_values(variables)
@@ -62,11 +59,26 @@ def process_query(query_text, embedding_model=DEFAULT_EMBEDDING_MODEL, llm_model
             return {"response": response_text, "sources": ["Calculated based on AAOIFI FAS 4 standards"]}
     
     # Handle Istisna'a cases with direct calculation
-    elif standard_type == STANDARD_TYPE_ISTISNA and "percentage" in query_text.lower():
+    elif standard_type == STANDARD_TYPE_ISTISNA and ("percentage" in query_text.lower() or "completion" in query_text.lower()):
+        print("\n\n==== PROCESSING ISTISNA'A SCENARIO ====\n")
         variables = extract_istisna_variables(query_text)
-        if 'contract_value' in variables and 'total_cost' in variables:
+        print(f"Extracted variables: {variables}")
+        
+        # Add description to variables for better context extraction
+        variables['description'] = query_text
+        
+        if 'contract_value' in variables and ('total_cost' in variables or 'parallel istisna' in query_text.lower()):
             calculations = calculate_istisna_values(variables)
+            print(f"Calculated values: {calculations}")
+            
+            # Print quarterly progress for debugging
+            print("\nQuarterly Progress:")
+            for idx, quarter in enumerate(calculations.get('quarterly_progress', [])):
+                print(f"Quarter {idx+1}: {quarter}")
+            
             response_text = format_istisna_response(variables, calculations)
+            print(f"\nFormatted response (first 200 chars): {response_text[:200]}...")
+            print("\n==== END ISTISNA'A PROCESSING ====\n")
             return {"response": response_text, "sources": ["Calculated based on AAOIFI FAS 10 standards"]}
     
     # For other cases, use the LLM
@@ -153,13 +165,56 @@ def query_handler():
         # Parse the response to extract structured financial data
         parsed_result = parse_financial_data(result["response"], query_text)
         
+        # Log the response for comparison between backend and frontend
+        standard_type = detect_standard_type(query_text)
+        
+        # Log appropriate messages based on the standard type
+        if standard_type == STANDARD_TYPE_IJARAH:
+            print("\n==== IJARAH RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED IJARAH DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END IJARAH FRONTEND DATA ====\n")
+        elif standard_type == STANDARD_TYPE_MURABAHA:
+            print("\n==== MURABAHA RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED MURABAHA DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END MURABAHA FRONTEND DATA ====\n")
+        elif standard_type == STANDARD_TYPE_ISTISNA:
+            print("\n==== ISTISNA'A RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED ISTISNA'A DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END ISTISNA'A FRONTEND DATA ====\n")
+        elif standard_type == STANDARD_TYPE_SALAM:
+            print("\n==== SALAM RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED SALAM DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END SALAM FRONTEND DATA ====\n")
+        elif standard_type == STANDARD_TYPE_SUKUK:
+            print("\n==== SUKUK RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED SUKUK DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END SUKUK FRONTEND DATA ====\n")
+        else:
+            print("\n==== GENERIC RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END FRONTEND DATA ====\n")
+        
         # Return both the original response and structured data
-        return jsonify({
+        response_data = {
             "response": result["response"],
             "thinking_process": thinking_process,
             "explanation": parsed_result.get("explanation", ""),
             "structured_response": parsed_result
-        })
+        }
+        
+        return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error in /usecase: {str(e)}")
         return jsonify({"error": str(e)}), 500
