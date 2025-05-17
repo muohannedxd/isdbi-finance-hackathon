@@ -3,7 +3,7 @@ Constants used throughout the Islamic Finance API.
 """
 
 # API and model configuration
-API_METHOD = "together"  # Options: "gemini" or "together"
+API_METHOD = "gemini"  # Options: "gemini" or "together"
 CHROMA_PATH = "chroma"
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
 TOGETHER_MODEL = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free"

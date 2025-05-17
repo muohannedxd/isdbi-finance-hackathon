@@ -101,17 +101,30 @@ def calculate_istisna_values(variables):
     Calculate Istisna'a accounting values based on extracted variables.
     
     Args:
-        variables (dict): The extracted variables
-        
+        variables (dict): The extracted variables including:
+            - contract_value: Value of the client contract
+            - total_cost: Cost paid to the contractor
+            - upfront_payment: Upfront payment to contractor (if applicable)
+            - completion_payment: Payment at completion to contractor (if applicable)
+            - delivery_period: Total delivery period in months
+            - installments: Number of payment installments
+            - payment_terms: Description of payment terms
+            
     Returns:
-        dict: Calculated values
+        dict: Calculated values including quarterly progress metrics
     """
     results = {}
-    contract_value = variables.get('contract_value', 0)
-    total_cost = variables.get('total_cost', 0)
-    delivery_period = variables.get('delivery_period', 12)  # Default to 12 months if not specified
-    installments = variables.get('installments', 4)  # Default to 4 installments
-
+    
+    # Extract base values
+    contract_value = float(variables.get('contract_value', 0))
+    total_cost = float(variables.get('total_cost', 0))
+    delivery_period = int(variables.get('delivery_period', 12))  # Default to 12 months
+    installments = int(variables.get('installments', 4))  # Default to 4 installments
+    
+    # Handle special payment structure if provided
+    upfront_payment = float(variables.get('upfront_payment', 0))
+    completion_payment = float(variables.get('completion_payment', 0))
+    
     # Calculate expected profit
     expected_profit = contract_value - total_cost
     profit_margin = (expected_profit / contract_value) * 100 if contract_value > 0 else 0
@@ -121,33 +134,96 @@ def calculate_istisna_values(variables):
     results['expected_profit'] = expected_profit
     results['profit_margin'] = profit_margin
     
-    # Calculate quarterly progress (assuming 4 equal quarters)
+    # Calculate quarterly progress
     quarterly_results = []
-    for i in range(1, 5):
-        percentage = i * 25  # Q1=25%, Q2=50%, Q3=75%, Q4=100%
+    
+    # Determine if we have a custom cost schedule or should use even distribution
+    has_custom_cost_schedule = upfront_payment > 0 or completion_payment > 0
+    
+    # Special case for parallel Istisna'a with upfront and completion payments
+    if has_custom_cost_schedule:
+        # Calculate the remaining cost to be distributed across quarters (excluding upfront & completion)
+        distributed_cost = total_cost - (upfront_payment + completion_payment)
+        quarterly_distributed_cost = distributed_cost / 4 if distributed_cost > 0 else 0
         
-        # Calculate based on even distribution across quarters
-        quarterly_cost = total_cost / 4  # Cost per quarter
-        cumulative_cost = quarterly_cost * i  # Cumulative cost through this quarter
+        # Track previous revenue and profit for incremental calculations
+        prev_revenue = 0
+        prev_profit = 0
         
-        # Calculate revenue and profit based on percentage of completion
-        quarterly_revenue = contract_value * (percentage / 100)
-        quarterly_profit = expected_profit * (percentage / 100)
+        for i in range(1, 5):
+            percentage = i * 25  # Q1=25%, Q2=50%, Q3=75%, Q4=100%
+            
+            # For Q1, include upfront payment
+            if i == 1:
+                quarterly_cost = upfront_payment + quarterly_distributed_cost
+            # For Q4, include completion payment
+            elif i == 4:
+                quarterly_cost = completion_payment + quarterly_distributed_cost
+            # For middle quarters, just the distributed cost
+            else:
+                quarterly_cost = quarterly_distributed_cost
+            
+            # Calculate cumulative cost through this quarter
+            cumulative_cost = upfront_payment + (quarterly_distributed_cost * i)
+            if i == 4:  # Add completion payment in last quarter
+                cumulative_cost += completion_payment
+            
+            # Calculate revenue and profit based on percentage of completion
+            quarterly_revenue = contract_value * (percentage / 100)
+            quarterly_profit = expected_profit * (percentage / 100)
+            
+            # Calculate incremental values (what's recognized in this quarter)
+            incremental_revenue = quarterly_revenue - prev_revenue
+            incremental_profit = quarterly_profit - prev_profit
+            
+            # Update previous values for next iteration
+            prev_revenue = quarterly_revenue
+            prev_profit = quarterly_profit
+            
+            quarterly_results.append({
+                'quarter': f"Q{i}",
+                'percentage': percentage,
+                'cumulative_cost': cumulative_cost,
+                'quarterly_cost': quarterly_cost,
+                'revenue': quarterly_revenue,
+                'profit': quarterly_profit,
+                'incremental_revenue': incremental_revenue,
+                'incremental_profit': incremental_profit
+            })
+    else:
+        # Standard even distribution across quarters
+        prev_revenue = 0
+        prev_profit = 0
         
-        # For incremental calculations
-        incremental_revenue = contract_value * 0.25  # 25% per quarter
-        incremental_profit = expected_profit * 0.25  # 25% per quarter
-        
-        quarterly_results.append({
-            'quarter': f"Q{i}",
-            'percentage': percentage,
-            'cumulative_cost': cumulative_cost,
-            'quarterly_cost': quarterly_cost,
-            'revenue': quarterly_revenue,
-            'profit': quarterly_profit,
-            'incremental_revenue': incremental_revenue,
-            'incremental_profit': incremental_profit
-        })
+        for i in range(1, 5):
+            percentage = i * 25  # Q1=25%, Q2=50%, Q3=75%, Q4=100%
+            
+            # Calculate costs
+            quarterly_cost = total_cost / 4  # Cost per quarter
+            cumulative_cost = quarterly_cost * i  # Cumulative cost through this quarter
+            
+            # Calculate revenue and profit based on percentage of completion
+            quarterly_revenue = contract_value * (percentage / 100)
+            quarterly_profit = expected_profit * (percentage / 100)
+            
+            # Calculate incremental values (what's recognized this quarter)
+            incremental_revenue = quarterly_revenue - prev_revenue
+            incremental_profit = quarterly_profit - prev_profit
+            
+            # Update previous values for next iteration
+            prev_revenue = quarterly_revenue
+            prev_profit = quarterly_profit
+            
+            quarterly_results.append({
+                'quarter': f"Q{i}",
+                'percentage': percentage,
+                'cumulative_cost': cumulative_cost,
+                'quarterly_cost': quarterly_cost,
+                'revenue': quarterly_revenue,
+                'profit': quarterly_profit,
+                'incremental_revenue': incremental_revenue,
+                'incremental_profit': incremental_profit
+            })
     
     results['quarterly_progress'] = quarterly_results
     return results

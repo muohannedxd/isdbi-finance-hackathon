@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import os
 import logging
-from datetime import datetime
+import random
 from langchain_community.vectorstores import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -88,9 +88,12 @@ def process_query(query_text, embedding_model=DEFAULT_EMBEDDING_MODEL, llm_model
     context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
     prompt_template = ChatPromptTemplate.from_template(get_prompt_for_standard(standard_type))
     prompt = prompt_template.format(context=context_text, question=query_text)
-    cached_response = get_cached_response(prompt)
+    
+    # Use the semantic caching system with the force_reload parameter
+    cached_response = get_cached_response(prompt, force_reload=force_reload)
     if cached_response and not force_reload:
         response_text = cached_response
+        print("Using semantically cached response")
     else:
         # Use default model if none provided
         if llm_model is None:
@@ -111,8 +114,20 @@ def process_query(query_text, embedding_model=DEFAULT_EMBEDDING_MODEL, llm_model
             )
         response = llm.invoke(prompt)
         response_text = response.content if hasattr(response, "content") else str(response)
+        
+        # Cache the response with our improved caching system
         cache_response(prompt, response_text)
+        print("Generated new response and cached it")
+        
     sources = [doc.metadata.get("source", None) for doc, _score in results]
+    
+    # Periodically clean expired cache entries (with 5% probability)
+    if random.random() < 0.05:
+        from utils.caching import clear_expired_entries
+        cleared = clear_expired_entries()
+        if cleared > 0:
+            print(f"Cleared {cleared} expired cache entries")
+            
     return {"response": response_text, "sources": sources}
 
 @usecase_bp.route('', methods=['POST'])

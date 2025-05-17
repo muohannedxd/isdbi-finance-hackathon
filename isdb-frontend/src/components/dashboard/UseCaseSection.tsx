@@ -775,15 +775,46 @@ export default function UseCaseSection() {
                       {message.role === "user" ? (
                         <div className="whitespace-pre-wrap">{message.content}</div>
                       ) : (
-                        <ReactMarkdown components={{
-                          // Make numbers bold in response
-                          text: ({ ...props }) => {
-                            const text = props.children as string;
-                            // Replace numbers with bold numbers
-                            const formattedText = text.replace(/([0-9,.]+)/g, '**$1**');
-                            return <ReactMarkdown>{formattedText}</ReactMarkdown>;
-                          }
-                        }}>{message.content}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            // Make numbers and key financial terms bold in response
+                            p: ({ children }) => {
+                              return <p className="mb-3">{children}</p>;
+                            },
+                            strong: ({ children }) => <span className="font-bold">{children}</span>,
+                            text: ({ ...props }) => {
+                              const text = props.children as string;
+                              
+                              // Process the text in stages to properly handle overlapping patterns
+                              
+                              // First, make key financial terms bold
+                              const keyTerms = [
+                                "Debit", "Credit", "Dr\\.", "Cr\\.",
+                                "Right of Use Asset", "ROU Asset", "Deferred Ijarah Cost",
+                                "Ijarah Liability", "Amortizable Amount", "Journal Entry", "Journal Entries",
+                                "Murabaha Asset", "Murabaha Receivables", "Deferred Murabaha Profit",
+                                "Work-in-Progress", "Istisna'a Revenue", "Istisna'a Receivable", "Parallel Istisna'a",
+                                "Cost of Sales", "Prime Cost", "Terminal Value", "Purchase Option", 
+                                "Percentage of Completion", "Quarterly Progress", "Incremental Revenue",
+                                "Contract Value", "Total Cost", "Expected Profit", "Profit Margin"
+                              ];
+                              
+                              let formattedText = text;
+                              keyTerms.forEach(term => {
+                                const regex = new RegExp(`\\b(${term})\\b`, 'gi');
+                                formattedText = formattedText.replace(regex, '**$1**');
+                              });
+                              
+                              // Then make numbers bold, but avoid double-bolding numbers in already bolded terms
+                              formattedText = formattedText.replace(/(\$?[0-9,.]+%?)(?!\*\*)/g, '**$1**');
+                              
+                              return <>{formattedText}</>;
+                            }
+                          }}
+                          remarkPlugins={[]}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
                       )}
                     </div>
 

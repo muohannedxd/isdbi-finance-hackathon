@@ -583,16 +583,34 @@ def extract_istisna_variables(query_text):
     
     extracted_values = {}
     
-    # Try specialized patterns first
-    contract_match = re.search(r'[Pp]rice:? \$?([0-9,.]+)', query_text)
-    if contract_match:
-        extracted_values['contract_value'] = float(contract_match.group(1).replace(',', ''))
+    # Try specialized patterns first for common payment structures
+    # Check for specifically formatted price and cost in the use case format
+    price_match = re.search(r'[Pp]rice:? \$?([0-9,.]+)', query_text)
+    if price_match:
+        extracted_values['contract_value'] = float(price_match.group(1).replace(',', ''))
     
     cost_match = re.search(r'[Cc]ost:? \$?([0-9,.]+)', query_text)
     if cost_match:
         extracted_values['total_cost'] = float(cost_match.group(1).replace(',', ''))
     
-    # Then try the general patterns
+    # Look for payment structures in the specific format used in the use case
+    payment_match = re.search(r'([0-9,.]+) upfront, ([0-9,.]+) on completion', query_text)
+    if payment_match:
+        extracted_values['upfront_payment'] = float(payment_match.group(1).replace(',', ''))
+        extracted_values['completion_payment'] = float(payment_match.group(2).replace(',', ''))
+    
+    # Check for dollar amounts with $ prefix
+    dollar_amounts = re.findall(r'\$([0-9,.]+)', query_text)
+    if len(dollar_amounts) >= 2 and 'contract_value' not in extracted_values:
+        for i, amount in enumerate(dollar_amounts):
+            if i == 0 and 'contract_value' not in extracted_values:
+                # First $ amount is often the contract value
+                extracted_values['contract_value'] = float(amount.replace(',', ''))
+            elif i == 1 and 'total_cost' not in extracted_values:
+                # Second $ amount is often the cost
+                extracted_values['total_cost'] = float(amount.replace(',', ''))
+    
+    # Then try the general patterns for any remaining values
     for key, pattern in patterns.items():
         if key not in extracted_values:
             match = re.search(pattern, query_text, re.IGNORECASE)
@@ -602,6 +620,41 @@ def extract_istisna_variables(query_text):
                     extracted_values[key] = float(value_str)
                 except ValueError:
                     pass
+    
+    # Handle specific formats for upfront and completion payments
+    upfront_completion_match = re.search(r'\$([0-9,.]+) upfront, \$([0-9,.]+) on completion', query_text)
+    if upfront_completion_match and 'upfront_payment' not in extracted_values:
+        extracted_values['upfront_payment'] = float(upfront_completion_match.group(1).replace(',', ''))
+        extracted_values['completion_payment'] = float(upfront_completion_match.group(2).replace(',', ''))
+    
+    # Special case for the parallel Istisna'a use case with specific payment terms 
+    payment_structure_match = re.search(r'Payment: ([0-9,.]+) ([a-zA-Z]+), ([0-9,.]+) ([a-zA-Z]+)', query_text)
+    if payment_structure_match:
+        amount1 = float(payment_structure_match.group(1).replace(',', ''))
+        term1 = payment_structure_match.group(2).lower()
+        amount2 = float(payment_structure_match.group(3).replace(',', ''))
+        term2 = payment_structure_match.group(4).lower()
+        
+        if 'upfront' in term1 or 'advance' in term1:
+            extracted_values['upfront_payment'] = amount1
+        elif 'completion' in term1 or 'final' in term1:
+            extracted_values['completion_payment'] = amount1
+            
+        if 'upfront' in term2 or 'advance' in term2:
+            extracted_values['upfront_payment'] = amount2
+        elif 'completion' in term2 or 'final' in term2:
+            extracted_values['completion_payment'] = amount2
+    
+    # If we found contract value and total cost but no payment structure,
+    # try to infer the payment structure from the context
+    if 'contract_value' in extracted_values and 'total_cost' in extracted_values:
+        if 'upfront_payment' not in extracted_values and 'completion_payment' not in extracted_values:
+            # Check for specific mentions of payment structure
+            if re.search(r'upfront.*?completion', query_text, re.IGNORECASE):
+                # If we find a mention of upfront and completion payments without amounts,
+                # assume a 50/50 split for the total cost
+                extracted_values['upfront_payment'] = extracted_values['total_cost'] / 2
+                extracted_values['completion_payment'] = extracted_values['total_cost'] / 2
     
     return extracted_values
 
@@ -1075,7 +1128,7 @@ def parse_financial_data(response_text, query_text):
         # Pattern for ROU asset calculation
         (r"(?:Prime cost|Purchase \+ Import tax \+ Freight)[:\s].*?([0-9,.]+)[\s]*\+[\s]*([0-9,.]+)[\s]*\+[\s]*([0-9,.]+)[\s]*=[\s]*([0-9,.]+)", 
          lambda m: {"label": "Prime Cost", "value": float(m.group(4).replace(',', ''))}),
-        (r"(?:Less: Terminal value|Less Terminal value).*?=[\s]*([0-9,.]+)[\s]*[-−][\s]*([0-9,.]+)[\s]*=[\s]*([0-9,.]+)[\s]*\(ROU\)", 
+        (r"(?:Less: Terminal value|Less Terminal value).*?=[\s]*([0-9,.]+)[\s]*[-−][\s]*([0-9,.]+)[\s]*=[\s]*([0-9,.]+)", 
          lambda m: {"label": "ROU Asset", "value": float(m.group(3).replace(',', ''))}),
         (r"Total rentals over[\s]*([0-9]+)[\s]*years?[\s]*=[\s]*([0-9,.]+)[\s]*[×x][\s]*([0-9]+)[\s]*=[\s]*([0-9,.]+)", 
          lambda m: {"label": "Total Rentals", "value": float(m.group(4).replace(',', ''))}),
