@@ -132,15 +132,37 @@ export default function DashboardSection() {
         
         // Get recent queries with transaction data
         // Process user messages to get user-assistant pairs
-        // Skip the first message if it's a static welcome message
+        // Skip the first message if it's a static welcome message (id=0)
         const startIndex = messages[0]?.role === 'assistant' && !messages[0]?.content.includes('?') ? 1 : 0;
-        const useCaseQueries = userMsgs.slice(startIndex).map(msg => {
-          // Find the corresponding assistant response
-          const assistantIdx = messages.findIndex((m, i) => 
-            i > messages.indexOf(msg) && m.role === 'assistant'
-          );
+        
+        // Group messages into conversations (every user message followed by assistant response)
+        const conversations = [];
+        let currentConversation = [];
+        
+        for (let i = startIndex; i < messages.length; i++) {
+          currentConversation.push(messages[i]);
+          // If we have a user message followed by an assistant message, that's a complete conversation
+          if (currentConversation.length >= 2 && 
+              currentConversation[currentConversation.length-2].role === 'user' && 
+              currentConversation[currentConversation.length-1].role === 'assistant') {
+            conversations.push([...currentConversation]);
+            currentConversation = [];
+          }
+        }
+        
+        // If there's an incomplete conversation (just a user message without response), add it too
+        if (currentConversation.length > 0) {
+          conversations.push(currentConversation);
+        }
+        
+        const useCaseQueries = conversations.map(conversation => {
+          // Get the first user message in this conversation
+          const userMsg = conversation.find(msg => msg.role === 'user');
+          // Get the corresponding assistant response
+          const assistantMsg = conversation.find(msg => msg.role === 'assistant');
           
-          const assistantMsg = assistantIdx !== -1 ? messages[assistantIdx] : null;
+          if (!userMsg) return null; // Skip if no user message found
+          
           let transactionData = 'N/A';
           
           // Extract transaction data from structured response if available
@@ -155,10 +177,10 @@ export default function DashboardSection() {
           }
           
           // Format timestamp
-          const timestamp = msg.timestamp ? new Date(msg.timestamp) : new Date();
+          const timestamp = userMsg.timestamp ? new Date(userMsg.timestamp) : new Date();
           
           return {
-            content: msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content,
+            content: userMsg.content.length > 50 ? userMsg.content.substring(0, 50) + '...' : userMsg.content,
             date: timestamp.toLocaleDateString(),
             time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             transactionData,
@@ -176,8 +198,10 @@ export default function DashboardSection() {
         });
         // Add UseCase queries to the recent queries state
         if (useCaseQueries.length > 0) {
+          // Filter out any null values that might have been returned
+          const validQueries = useCaseQueries.filter(query => query !== null);
           // Reset the queries state to only contain the most recent UseCase queries
-          setRecentQueries(useCaseQueries);
+          setRecentQueries(validQueries);
         }
       } catch (error) {
         console.error('Error parsing UseCase history:', error);
@@ -217,17 +241,36 @@ export default function DashboardSection() {
         // Process user messages to get user-assistant pairs
         // Skip the first message if it's a static welcome message
         const startIndex = messages[0]?.role === 'assistant' && !messages[0]?.content.includes('?') ? 1 : 0;
-        const reverseTransactionQueries = messages
-          .filter(msg => msg.role === 'user')
-          .slice(startIndex)
-          .map(msg => {
-            // Find the corresponding assistant response
-            const assistantIdx = messages.findIndex((m, i) => 
-              i > messages.indexOf(msg) && m.role === 'assistant'
-            );
-            
-            const assistantMsg = assistantIdx !== -1 ? messages[assistantIdx] : null;
-            let transactionData = 'N/A';
+        
+        // Group messages into conversations (every user message followed by assistant response)
+        const conversations = [];
+        let currentConversation = [];
+        
+        for (let i = startIndex; i < messages.length; i++) {
+          currentConversation.push(messages[i]);
+          // If we have a user message followed by an assistant message, that's a complete conversation
+          if (currentConversation.length >= 2 && 
+              currentConversation[currentConversation.length-2].role === 'user' && 
+              currentConversation[currentConversation.length-1].role === 'assistant') {
+            conversations.push([...currentConversation]);
+            currentConversation = [];
+          }
+        }
+        
+        // If there's an incomplete conversation (just a user message without response), add it too
+        if (currentConversation.length > 0) {
+          conversations.push(currentConversation);
+        }
+        
+        const reverseTransactionQueries = conversations.map(conversation => {
+          // Get the first user message in this conversation
+          const userMsg = conversation.find(msg => msg.role === 'user');
+          // Get the corresponding assistant response
+          const assistantMsg = conversation.find(msg => msg.role === 'assistant');
+          
+          if (!userMsg) return null; // Skip if no user message found
+          
+          let transactionData = 'N/A';
             
             // Extract transaction data - number of anomalies if available
             if (assistantMsg?.response?.anomalies) {
@@ -235,10 +278,10 @@ export default function DashboardSection() {
             }
             
             // Format timestamp
-            const timestamp = msg.timestamp ? new Date(msg.timestamp) : new Date();
+            const timestamp = userMsg.timestamp ? new Date(userMsg.timestamp) : new Date();
             
             return {
-              content: msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content,
+              content: userMsg.content.length > 50 ? userMsg.content.substring(0, 50) + '...' : userMsg.content,
               date: timestamp.toLocaleDateString(),
               time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               transactionData,
@@ -280,9 +323,11 @@ export default function DashboardSection() {
         
         // Combine recent queries from both sources
         if (reverseTransactionQueries.length > 0) {
+          // Filter out any null values that might have been returned
+          const validQueries = reverseTransactionQueries.filter(query => query !== null);
           setRecentQueries(prevQueries => {
             // Combine with any existing queries from useCase
-            const allQueries = [...prevQueries, ...reverseTransactionQueries];
+            const allQueries = [...prevQueries, ...validQueries];
             
             // Create a map to deduplicate queries based on content
             const uniqueQueries = new Map();
