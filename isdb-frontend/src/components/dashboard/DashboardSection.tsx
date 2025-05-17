@@ -1,7 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ScrollToTop } from "../ScrollToTop";
 import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { CustomModal } from "@/components/ui/custom-modal";
+// Import html2pdf library
+import html2pdf from 'html2pdf.js';
 
 // Interface for message types
 interface UseCaseMessage {
@@ -13,6 +18,13 @@ interface UseCaseMessage {
     journal_entries?: Array<{debit?: string, credit?: string, amount: number}>;
     ledger_summary?: Array<{[key: string]: string | number}>;
     explanation?: string;
+    sections?: {
+      analysis?: string;
+      variables?: string;
+      calculations?: string;
+      journal_entries?: string;
+      explanation?: string;
+    };
   };
   timestamp?: number;
 }
@@ -37,6 +49,17 @@ interface TransactionType {
   count: number;
 }
 
+// Interface for query items in the dashboard
+interface QueryItem {
+  content: string;
+  date: string;
+  time: string;
+  transactionData: string;
+  type: 'useCase' | 'reverseTransaction';
+  messageIndex?: number;
+  originalQuery?: string;
+}
+
 export default function DashboardSection() {
   // State for storing statistics
   const [useCaseStats, setUseCaseStats] = useState({
@@ -55,7 +78,23 @@ export default function DashboardSection() {
     anomaliesDetected: 0
   });
   
-  const [recentQueries, setRecentQueries] = useState<{content: string, date: string, time: string, transactionData: string, type: 'useCase' | 'reverseTransaction'}[]>([]);
+  const [recentQueries, setRecentQueries] = useState<QueryItem[]>([]);
+  const [allMessages, setAllMessages] = useState<{
+    useCase: UseCaseMessage[];
+    reverseTransaction: ReverseTransactionMessage[];
+  }>({
+    useCase: [],
+    reverseTransaction: []
+  });
+
+  // State for download report modal
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<{
+    messageIndex: number; 
+    title: string;
+    type: 'useCase' | 'reverseTransaction';
+  } | null>(null);
+  const [reportGenerating, setReportGenerating] = useState(false);
 
   // Load and process data from localStorage
   useEffect(() => {
@@ -64,6 +103,9 @@ export default function DashboardSection() {
     if (useCaseHistory) {
       try {
         const messages = JSON.parse(useCaseHistory) as UseCaseMessage[];
+        
+        // Store all messages for report generation
+        setAllMessages(prev => ({...prev, useCase: messages}));
         
         // Calculate statistics
         const userMsgs = messages.filter(msg => msg.role === 'user');
@@ -132,7 +174,7 @@ export default function DashboardSection() {
         
         // Get recent queries with transaction data
         // Process user messages to get user-assistant pairs
-        // Skip the first message if it's a static welcome message (id=0)
+        // Skip the first message if it's a static welcome message
         const startIndex = messages[0]?.role === 'assistant' && !messages[0]?.content.includes('?') ? 1 : 0;
         
         // Group messages into conversations (every user message followed by assistant response)
@@ -179,12 +221,21 @@ export default function DashboardSection() {
           // Format timestamp
           const timestamp = userMsg.timestamp ? new Date(userMsg.timestamp) : new Date();
           
+          // Find the index of the assistant message in the original messages array
+          const msgIndex = assistantMsg ? messages.findIndex(msg => 
+            msg.role === 'assistant' && 
+            msg.content === assistantMsg.content && 
+            msg.timestamp === assistantMsg.timestamp
+          ) : -1;
+          
           return {
             content: userMsg.content.length > 50 ? userMsg.content.substring(0, 50) + '...' : userMsg.content,
             date: timestamp.toLocaleDateString(),
             time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             transactionData,
-            type: 'useCase' as const
+            type: 'useCase' as const,
+            messageIndex: msgIndex,
+            originalQuery: userMsg.content
           };
         });
         
@@ -196,10 +247,11 @@ export default function DashboardSection() {
           averageResponseTime: avgResponseTime,
           topKeywords
         });
+        
         // Add UseCase queries to the recent queries state
         if (useCaseQueries.length > 0) {
           // Filter out any null values that might have been returned
-          const validQueries = useCaseQueries.filter(query => query !== null);
+          const validQueries = useCaseQueries.filter(query => query !== null) as QueryItem[];
           // Reset the queries state to only contain the most recent UseCase queries
           setRecentQueries(validQueries);
         }
@@ -213,6 +265,9 @@ export default function DashboardSection() {
     if (reverseHistory) {
       try {
         const messages = JSON.parse(reverseHistory) as ReverseTransactionMessage[];
+        
+        // Store all messages for report generation
+        setAllMessages(prev => ({...prev, reverseTransaction: messages}));
         
         // Count transactions and extract types
         const transactions = messages.filter(msg => msg.role === 'assistant' && msg.response);
@@ -272,22 +327,31 @@ export default function DashboardSection() {
           
           let transactionData = 'N/A';
             
-            // Extract transaction data - number of anomalies if available
-            if (assistantMsg?.response?.anomalies) {
-              transactionData = `${assistantMsg.response.anomalies.length} anomalies`;
-            }
-            
-            // Format timestamp
-            const timestamp = userMsg.timestamp ? new Date(userMsg.timestamp) : new Date();
-            
-            return {
-              content: userMsg.content.length > 50 ? userMsg.content.substring(0, 50) + '...' : userMsg.content,
-              date: timestamp.toLocaleDateString(),
-              time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              transactionData,
-              type: 'reverseTransaction' as const
-            };
-          });
+          // Extract transaction data - number of anomalies if available
+          if (assistantMsg?.response?.anomalies) {
+            transactionData = `${assistantMsg.response.anomalies.length} anomalies`;
+          }
+          
+          // Format timestamp
+          const timestamp = userMsg.timestamp ? new Date(userMsg.timestamp) : new Date();
+          
+          // Find the index of the assistant message in the original messages array
+          const msgIndex = assistantMsg ? messages.findIndex(msg => 
+            msg.role === 'assistant' && 
+            msg.content === assistantMsg.content && 
+            msg.timestamp === assistantMsg.timestamp
+          ) : -1;
+          
+          return {
+            content: userMsg.content.length > 50 ? userMsg.content.substring(0, 50) + '...' : userMsg.content,
+            date: timestamp.toLocaleDateString(),
+            time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            transactionData,
+            type: 'reverseTransaction' as const,
+            messageIndex: msgIndex,
+            originalQuery: userMsg.content
+          };
+        });
         
         transactions.forEach(transaction => {
           if (transaction.response) {
@@ -324,7 +388,7 @@ export default function DashboardSection() {
         // Combine recent queries from both sources
         if (reverseTransactionQueries.length > 0) {
           // Filter out any null values that might have been returned
-          const validQueries = reverseTransactionQueries.filter(query => query !== null);
+          const validQueries = reverseTransactionQueries.filter(query => query !== null) as QueryItem[];
           setRecentQueries(prevQueries => {
             // Combine with any existing queries from useCase
             const allQueries = [...prevQueries, ...validQueries];
@@ -359,11 +423,569 @@ export default function DashboardSection() {
         console.error('Error parsing ReverseTransaction history:', error);
       }
     }
-    
-    // We don't need to set recent queries from UseCase here as they're already handled in the UseCase history processing
   }, []);
   
-  // Colors for charts
+  // Function to generate and download a report
+  const downloadReport = async (messageIndex: number, type: 'useCase' | 'reverseTransaction') => {
+    if (messageIndex < 0) {
+      console.error("Invalid message index for report generation");
+      return;
+    }
+    
+    setReportGenerating(true);
+    
+    try {
+      // Get the appropriate messages array based on type
+      const messages = type === 'useCase' ? allMessages.useCase : allMessages.reverseTransaction;
+      
+      if (messageIndex >= messages.length) {
+        console.error("Message index out of bounds for report generation");
+        setReportGenerating(false);
+        return;
+      }
+      
+      // Get the assistant message and find the corresponding user question
+      const assistantMessage = messages[messageIndex];
+      if (assistantMessage.role !== 'assistant') {
+        console.error("Selected message is not from assistant");
+        setReportGenerating(false);
+        return;
+      }
+      
+      // Find the user message that preceded this assistant message
+      let userMessage;
+      for (let i = messageIndex - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+          userMessage = messages[i];
+          break;
+        }
+      }
+      
+      if (!userMessage) {
+        console.error("Could not find corresponding user message");
+        setReportGenerating(false);
+        return;
+      }
+      
+      // Format date for the report
+      const date = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Determine the title for the report based on content
+      let title = type === 'useCase' ? "Islamic Finance Analysis Report" : "Transaction Analysis Report";
+      
+      if (type === 'useCase') {
+        const useCaseMsg = assistantMessage as UseCaseMessage;
+        
+        // Try to extract a more specific title from the content
+        if (useCaseMsg.structuredResponse?.sections?.analysis) {
+          const analysisText = useCaseMsg.structuredResponse.sections.analysis;
+          if (analysisText.includes("MURABAHA")) {
+            title = "Murabaha Financing Analysis Report";
+          } else if (analysisText.includes("IJARAH")) {
+            title = "Ijarah MBT Analysis Report";
+          } else if (analysisText.includes("ISTISNA")) {
+            title = "Istisna'a Contract Analysis Report";
+          } else if (analysisText.includes("SALAM")) {
+            title = "Salam Contract Analysis Report";
+          } else if (analysisText.includes("MUSHARAKA")) {
+            title = "Musharaka Financing Analysis Report";
+          } else if (analysisText.includes("SUKUK")) {
+            title = "Sukuk Analysis Report";
+          }
+        } else if (useCaseMsg.content) {
+          // Try to extract title from content
+          const content = useCaseMsg.content.toLowerCase();
+          if (content.includes("murabaha")) {
+            title = "Murabaha Financing Analysis Report";
+          } else if (content.includes("ijarah")) {
+            title = "Ijarah MBT Analysis Report";
+          } else if (content.includes("istisna")) {
+            title = "Istisna'a Contract Analysis Report";
+          } else if (content.includes("salam")) {
+            title = "Salam Contract Analysis Report";
+          } else if (content.includes("musharaka")) {
+            title = "Musharaka Financing Analysis Report";
+          } else if (content.includes("sukuk")) {
+            title = "Sukuk Analysis Report";
+          }
+        }
+      } else {
+        // For reverse transaction, use the primary standard as the title
+        const reverseMsg = assistantMessage as ReverseTransactionMessage;
+        if (reverseMsg.response?.primary_standard) {
+          title = `${reverseMsg.response.primary_standard} Analysis Report`;
+        }
+      }
+
+      // Create a complete HTML document with styling
+      let reportContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${title}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #4f946c;
+              padding-bottom: 10px;
+            }
+            .header h1 {
+              color: #2d6a4f;
+              margin-bottom: 5px;
+            }
+            .header p {
+              color: #666;
+              margin-top: 0;
+            }
+            .section {
+              margin-bottom: 25px;
+              page-break-inside: avoid;
+            }
+            .section-title {
+              background-color: #edf7f0;
+              color: #2d6a4f;
+              padding: 8px 15px;
+              border-radius: 5px;
+              margin-bottom: 15px;
+              font-weight: bold;
+            }
+            .scenario {
+              background-color: #f8f9fa;
+              padding: 15px;
+              border-radius: 5px;
+              border-left: 4px solid #4f946c;
+              margin-bottom: 20px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 15px 0;
+              page-break-inside: avoid;
+            }
+            table, th, td {
+              border: 1px solid #ddd;
+            }
+            th {
+              background-color: #f2f2f2;
+              padding: 10px;
+              text-align: left;
+            }
+            td {
+              padding: 8px 10px;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: center;
+              font-size: 12px;
+              color: #888;
+              border-top: 1px solid #ddd;
+              padding-top: 15px;
+            }
+            .analysis-content {
+              margin-bottom: 20px;
+            }
+            .calculations table {
+              width: 100%;
+            }
+            .journal-entries table tr:nth-child(odd) {
+              background-color: #f9f9f9;
+            }
+            .thinking {
+              background-color: #fffaed;
+              padding: 15px;
+              border-radius: 5px;
+              border-left: 4px solid #f0c040;
+              margin-bottom: 20px;
+              font-style: italic;
+              page-break-inside: avoid;
+            }
+            .anomalies {
+              background-color: #feebeb;
+              padding: 15px;
+              border-radius: 5px;
+              border-left: 4px solid #e53e3e;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
+            }
+            .standards {
+              background-color: #ebf8ff;
+              padding: 15px;
+              border-radius: 5px;
+              border-left: 4px solid #3182ce;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${title}</h1>
+            <p>Generated on ${date}</p>
+          </div>
+
+          <div class="section">
+            <div class="section-title">SCENARIO</div>
+            <div class="scenario">
+              ${userMessage.content.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+      `;
+
+      // Add content based on the message type
+      if (type === 'useCase') {
+        const useCaseMsg = assistantMessage as UseCaseMessage;
+        
+        // Add analysis section
+        reportContent += `
+          <div class="section">
+            <div class="section-title">ANALYSIS</div>
+            <div class="analysis-content">
+              ${useCaseMsg.content.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+        `;
+        
+        // Add structured response sections if available
+        if (useCaseMsg.structuredResponse) {
+          const { sections, calculations, journal_entries, ledger_summary, amortizable_amount_table } = useCaseMsg.structuredResponse;
+          
+          // Add sections content if available
+          if (sections) {
+            if (sections.variables) {
+              reportContent += `
+                <div class="section">
+                  <div class="section-title">EXTRACTED VARIABLES</div>
+                  <div class="analysis-content">
+                    ${sections.variables.replace(/\n/g, '<br>')}
+                  </div>
+                </div>
+              `;
+            }
+            
+            if (sections.calculations) {
+              reportContent += `
+                <div class="section">
+                  <div class="section-title">CALCULATIONS</div>
+                  <div class="analysis-content">
+                    ${sections.calculations.replace(/\n/g, '<br>')}
+                  </div>
+                </div>
+              `;
+            }
+            
+            if (sections.journal_entries) {
+              reportContent += `
+                <div class="section">
+                  <div class="section-title">JOURNAL ENTRIES</div>
+                  <div class="analysis-content">
+                    ${sections.journal_entries.replace(/\n/g, '<br>')}
+                  </div>
+                </div>
+              `;
+            }
+            
+            if (sections.explanation) {
+              reportContent += `
+                <div class="section">
+                  <div class="section-title">EXPLANATION</div>
+                  <div class="analysis-content">
+                    ${sections.explanation.replace(/\n/g, '<br>')}
+                  </div>
+                </div>
+              `;
+            }
+          }
+          
+          // Add calculations as a table if not already included in sections
+          if (calculations && calculations.length > 0 && !sections?.calculations) {
+            reportContent += `
+              <div class="section">
+                <div class="section-title">FINANCIAL CALCULATIONS</div>
+                <div class="calculations">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Description</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${calculations.map(calc => `
+                        <tr>
+                          <td>${calc.label}</td>
+                          <td>${calc.label.toLowerCase().includes('completion')
+                            ? `${calc.value}%`
+                            : new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD'
+                              }).format(calc.value)
+                            }
+                          </td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Add amortizable amount table if available
+          if (amortizable_amount_table && amortizable_amount_table.length > 0) {
+            reportContent += `
+              <div class="section">
+                <div class="section-title">AMORTIZABLE AMOUNT CALCULATION</div>
+                <div class="calculations">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Description</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${amortizable_amount_table.map(entry => `
+                        <tr>
+                          <td>${entry.description}</td>
+                          <td>${new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD'
+                          }).format(entry.amount)}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Add journal entries if not already included in sections
+          if (journal_entries && journal_entries.length > 0 && !sections?.journal_entries) {
+            reportContent += `
+              <div class="section">
+                <div class="section-title">JOURNAL ENTRIES</div>
+                <div class="journal-entries">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Account</th>
+                        <th>Debit</th>
+                        <th>Credit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${journal_entries.map(entry => `
+                        <tr>
+                          <td>${entry.debit || entry.credit}</td>
+                          <td>${entry.debit ? new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD'
+                          }).format(entry.amount) : ''}</td>
+                          <td>${entry.credit ? new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: 'USD'
+                          }).format(entry.amount) : ''}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Add ledger summary table if available
+          if (ledger_summary && ledger_summary.length > 0) {
+            const headers = Object.keys(ledger_summary[0]);
+            
+            reportContent += `
+              <div class="section">
+                <div class="section-title">LEDGER SUMMARY</div>
+                <div class="journal-entries">
+                  <table>
+                    <thead>
+                      <tr>
+                        ${headers.map(header => `<th>${header}</th>`).join('')}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${ledger_summary.map(row => `
+                        <tr>
+                          ${headers.map(key => `
+                            <td>${typeof row[key] === 'number' 
+                              ? new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: 'USD'
+                                }).format(row[key] as number)
+                              : row[key]}
+                            </td>
+                          `).join('')}
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          }
+        }
+        
+        // Add thinking process if available
+        if (useCaseMsg.thinking) {
+          reportContent += `
+            <div class="section">
+              <div class="section-title">THINKING PROCESS</div>
+              <div class="thinking">
+                ${useCaseMsg.thinking.replace(/\n/g, '<br>')}
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        // Handle Reverse Transaction report
+        const reverseMsg = assistantMessage as ReverseTransactionMessage;
+        
+        // Add main content
+        reportContent += `
+          <div class="section">
+            <div class="section-title">ANALYSIS</div>
+            <div class="analysis-content">
+              ${reverseMsg.content.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+        `;
+        
+        // Add structured response sections if available
+        if (reverseMsg.response) {
+          // Add anomalies if present
+          if (reverseMsg.response.anomalies && reverseMsg.response.anomalies.length > 0) {
+            reportContent += `
+              <div class="section">
+                <div class="section-title">ANOMALIES DETECTED</div>
+                <div class="anomalies">
+                  <ul>
+                    ${reverseMsg.response.anomalies.map(anomaly => `
+                      <li>${anomaly}</li>
+                    `).join('')}
+                  </ul>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Add applicable standards
+          if (reverseMsg.response.applicable_standards && reverseMsg.response.applicable_standards.length > 0) {
+            reportContent += `
+              <div class="section">
+                <div class="section-title">APPLICABLE STANDARDS</div>
+                <div class="standards">
+                  <p><strong>Primary Standard:</strong> ${reverseMsg.response.primary_standard}</p>
+                  <p><strong>Primary Sharia Standard:</strong> ${reverseMsg.response.primary_sharia_standard}</p>
+                  
+                  <h4>All Standards with Weight:</h4>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Standard</th>
+                        <th>Weight</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${reverseMsg.response.applicable_standards.map(standard => `
+                        <tr>
+                          <td>${standard.standard}</td>
+                          <td>${standard.weight}%</td>
+                          <td>${standard.reason}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          }
+          
+          // Add thinking process
+          if (reverseMsg.response.thinking_process && reverseMsg.response.thinking_process.length > 0) {
+            reportContent += `
+              <div class="section">
+                <div class="section-title">THINKING PROCESS</div>
+                <div class="thinking">
+                  <ul>
+                    ${reverseMsg.response.thinking_process.map(step => `
+                      <li>${step}</li>
+                    `).join('')}
+                  </ul>
+                </div>
+              </div>
+            `;
+          }
+        }
+      }
+
+      // Add footer
+      reportContent += `
+          <div class="footer">
+            <p>Generated by ISDB Finance Assistant</p>
+            <p>This report is for educational and informational purposes only.</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Create a container element that will be converted to PDF
+      const element = document.createElement('div');
+      element.innerHTML = reportContent;
+      document.body.appendChild(element);
+      
+      // Configure options for html2pdf
+      const options = {
+        margin: [10, 10, 10, 10], // [top, left, bottom, right] or [vertical, horizontal]
+        filename: `${title.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      // Generate PDF
+      html2pdf()
+        .from(element)
+        .set(options)
+        .save()
+        .then(() => {
+          // Cleanup
+          document.body.removeChild(element);
+          setReportModalOpen(false);
+          setReportGenerating(false);
+        })
+        .catch((error) => {
+          console.error('Error generating PDF:', error);
+          setReportGenerating(false);
+        });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      setReportGenerating(false);
+    }
+  };
+
+  // Colors for charts  
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   return (
@@ -481,6 +1103,7 @@ export default function DashboardSection() {
                     <th className="p-3 text-left font-medium text-green-800">Query</th>
                     <th className="p-3 text-left font-medium text-green-800">Transaction Data</th>
                     <th className="p-3 text-left font-medium text-green-800">Type</th>
+                    <th className="p-3 text-left font-medium text-green-800">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -495,6 +1118,28 @@ export default function DashboardSection() {
                           {query.type === 'useCase' ? 'Use Case' : 'Reverse Transaction'}
                         </span>
                       </td>
+                      <td className="p-3">
+                        {query.messageIndex && query.messageIndex >= 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-sm text-blue-700 hover:text-blue-800 hover:bg-blue-50 flex items-center gap-1"
+                            onClick={() => {
+                              if (query.messageIndex !== undefined && query.messageIndex >= 0) {
+                                setSelectedReport({
+                                  messageIndex: query.messageIndex,
+                                  title: query.content.length > 30 ? query.content.substring(0, 30) + '...' : query.content,
+                                  type: query.type
+                                });
+                                setReportModalOpen(true);
+                              }
+                            }}
+                          >
+                            <Download className="h-3 w-3" />
+                            Report
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -506,6 +1151,22 @@ export default function DashboardSection() {
         </CardContent>
       </Card>
       <ScrollToTop />
+      
+      {/* Report Generation Modal */}
+      <CustomModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        title="Generate Full Report"
+        description={`Do you want to generate a detailed report for "${selectedReport?.title}"? This will create a downloadable PDF file with all analysis and financial data.`}
+        cancelText="Cancel"
+        confirmText={reportGenerating ? "Generating..." : "Download Report"}
+        onConfirm={() => {
+          if (selectedReport) {
+            downloadReport(selectedReport.messageIndex, selectedReport.type);
+          }
+        }}
+        color="green"
+      />
     </div>
   );
 }
