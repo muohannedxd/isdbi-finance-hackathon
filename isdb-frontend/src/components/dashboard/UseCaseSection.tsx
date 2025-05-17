@@ -226,48 +226,30 @@ export default function UseCaseSection() {
       let formattedContent = "";
       const structResponse = responseData.structured_response;
       
-      // For Murabaha responses, only show the explanation in the main content
-      // and put other content in collapsible sections
+      // For Murabaha responses, only show the section title in the main content
+      // and put the explanation in the explanation section to avoid duplication
       if (structResponse.sections && 
           (responseData.response?.includes("MURABAHA FINANCING") || 
           (structResponse.sections.analysis && structResponse.sections.analysis.includes("Murabaha")))) {
         
-        // Just include the title and explanation in the main content
-        formattedContent = "## ANALYSIS OF MURABAHA FINANCING\n\n";
-        
-        if (structResponse.explanation) {
-          formattedContent += structResponse.explanation;
-        } else if (structResponse.sections.explanation) {
-          formattedContent += structResponse.sections.explanation;
-        }
+        // Just include the title without duplicating the explanation
+        formattedContent = "## ANALYSIS OF MURABAHA FINANCING";
       } 
       // For Musharaka responses
       else if (structResponse.sections && 
               (responseData.response?.includes("MUSHARAKA FINANCING") || 
               (structResponse.sections.analysis && structResponse.sections.analysis.includes("Musharaka")))) {
         
-        // Just include the title and explanation in the main content
-        formattedContent = "## ANALYSIS OF MUSHARAKA FINANCING\n\n";
-        
-        if (structResponse.explanation) {
-          formattedContent += structResponse.explanation;
-        } else if (structResponse.sections.explanation) {
-          formattedContent += structResponse.sections.explanation;
-        }
+        // Just include the title without duplicating the explanation
+        formattedContent = "## ANALYSIS OF MUSHARAKA FINANCING";
       }
       // For Ijarah responses
       else if (structResponse.sections && 
               (responseData.response?.includes("IJARAH MBT SCENARIO") || 
               (structResponse.sections.analysis && structResponse.sections.analysis.includes("Ijarah")))) {
         
-        // Just include the title and explanation in the main content
-        formattedContent = "## ANALYSIS OF IJARAH MBT SCENARIO\n\n";
-        
-        if (structResponse.explanation) {
-          formattedContent += structResponse.explanation;
-        } else if (structResponse.sections.explanation) {
-          formattedContent += structResponse.sections.explanation;
-        }
+        // Just include the title without duplicating the explanation
+        formattedContent = "## ANALYSIS OF IJARAH MBT SCENARIO";
       }
       // For other responses, use the full formatted response
       else {
@@ -457,29 +439,29 @@ export default function UseCaseSection() {
     
     // Standard background colors for different section types
     const sectionColors: Record<string, { bg: string, hover: string, text: string }> = {
+      'explanation': { bg: 'bg-purple-50', hover: 'hover:bg-purple-100', text: 'text-purple-800' },
       'analysis': { bg: 'bg-indigo-50', hover: 'hover:bg-indigo-100', text: 'text-indigo-800' },
       'variables': { bg: 'bg-blue-50', hover: 'hover:bg-blue-100', text: 'text-blue-800' },
       'calculations': { bg: 'bg-green-50', hover: 'hover:bg-green-100', text: 'text-green-800' },
-      'journal_entries': { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', text: 'text-amber-800' },
-      'explanation': { bg: 'bg-purple-50', hover: 'hover:bg-purple-100', text: 'text-purple-800' }
+      'journal_entries': { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', text: 'text-amber-800' }
     };
     
     // Section icons
     const sectionIcons: Record<string, React.ReactNode> = {
+      'explanation': <FileText className="h-5 w-5 mr-2" />,
       'analysis': <FileText className="h-5 w-5 mr-2" />,
       'variables': <FileText className="h-5 w-5 mr-2" />,
       'calculations': <Calculator className="h-5 w-5 mr-2" />,
-      'journal_entries': <Table className="h-5 w-5 mr-2" />,
-      'explanation': <FileText className="h-5 w-5 mr-2" />
+      'journal_entries': <Table className="h-5 w-5 mr-2" />
     };
     
     // Display names for sections
     const sectionDisplayNames: Record<string, string> = {
+      'explanation': 'Additional Explanation',
       'analysis': 'Analysis',
       'variables': 'Extracted Variables',
       'calculations': 'Detailed Calculations',
-      'journal_entries': 'Journal Entries',
-      'explanation': 'Additional Explanation'
+      'journal_entries': 'Journal Entries'
     };
 
     return (
@@ -487,9 +469,22 @@ export default function UseCaseSection() {
         {/* Dynamic Sections from structured response */}
         {hasDetailedSections && (
           <>
+            {/* Add the explanation as normal text if it exists in sections - MOVED TO DISPLAY FIRST */}
+            {sections.explanation && (
+              <div className="mb-4 p-4 bg-white rounded-lg border">
+                <ReactMarkdown components={{
+                  p: ({ children }) => {
+                    return <p className="mb-3 whitespace-pre-line">{children}</p>;
+                  }
+                }}>
+                  {sections.explanation}
+                </ReactMarkdown>
+              </div>
+            )}
+            
             {Object.entries(sections).map(([key, content]) => {
-              // Skip empty content
-              if (!content) return null;
+              // Skip empty content and don't create a collapsible section for explanation
+              if (!content || key === 'explanation') return null;
               
               return (
                 <div key={key} className="w-full border rounded-lg overflow-hidden bg-white">
