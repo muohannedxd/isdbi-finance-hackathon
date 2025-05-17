@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  usecase-service:
+    build: ./usecase-service
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./usecase-service:/app
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - isdb-network
+
+  reversetransaction-service:
+    build: ./reverse-transaction-service
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./reverse-transaction-service:/app
+    environment:
+      - FLASK_ENV=development
+    networks:
+      - isdb-network
+
+  frontend:
+    build: ./isdb-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./isdb-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - usecase-service
+      - reversetransaction-service
+    networks:
+      - isdb-network
+
+networks:
+  isdb-network:
+    driver: bridge
