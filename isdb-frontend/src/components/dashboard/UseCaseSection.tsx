@@ -811,6 +811,36 @@ export default function UseCaseSection() {
     }
   };
 
+  // Function to preprocess markdown tables for proper rendering
+  const preprocessMarkdownTables = (content: string): string => {
+    // Find any markdown tables in the content
+    const tableRegex = /(\|[^\n]+\|(?:\r?\n\|[^\n]+\|)+)/g;
+    
+    // Replace markdown tables with properly formatted ones
+    return content.replace(tableRegex, (table) => {
+      // Ensure proper spacing around pipe characters
+      let formattedTable = table;
+      
+      // Fix the header separator line to ensure it has enough dashes
+      const lines = formattedTable.split('\n');
+      if (lines.length >= 2) {
+        // Check if separator line exists and has enough separators
+        if (lines[1] && lines[1].includes('|') && lines[1].includes('-')) {
+          const separatorParts = lines[1].split('|');
+          // Ensure each cell has proper formatting with at least 3 dashes
+          lines[1] = separatorParts.map(part => 
+            part.trim() ? '|' + '---'.padEnd(Math.max(part.length, 3), '-') : '|'
+          ).join('');
+          
+          formattedTable = lines.join('\n');
+        }
+      }
+      
+      // Add extra line breaks before and after the table for proper markdown rendering
+      return '\n\n' + formattedTable + '\n\n';
+    });
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center">
@@ -949,7 +979,7 @@ export default function UseCaseSection() {
                             tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
                             tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
                             th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-700 border-b border-r last:border-r-0">{children}</th>,
-                            td: ({ children }) => <td className="px-3 py-2 text-sm border-r last:border-r-0 whitespace-pre-wrap">{children}</td>,
+                            td: ({ children }) => <td className="px-3 py-2 text-sm border-r last:border-r-0 whitespace-normal">{children}</td>,
                             text: ({ ...props }) => {
                               const text = props.children as string;
                               
@@ -981,7 +1011,7 @@ export default function UseCaseSection() {
                           }}
                           remarkPlugins={[]}
                         >
-                          {message.content}
+                          {preprocessMarkdownTables(message.content)}
                         </ReactMarkdown>
                       )}
                     </div>
