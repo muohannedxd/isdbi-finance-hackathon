@@ -222,9 +222,47 @@ export default function UseCaseSection() {
   } => {
     // Check if response is already structured
     if (responseData.structured_response) {
+      // Handle different response types according to financial product type
+      let formattedContent = "";
+      const structResponse = responseData.structured_response;
+      
+      // For Murabaha responses, only show the explanation in the main content
+      // and put other content in collapsible sections
+      if (structResponse.sections && 
+          (responseData.response?.includes("MURABAHA FINANCING") || 
+          (structResponse.sections.analysis && structResponse.sections.analysis.includes("Murabaha")))) {
+        
+        // Just include the title and explanation in the main content
+        formattedContent = "## ANALYSIS OF MURABAHA FINANCING\n\n";
+        
+        if (structResponse.explanation) {
+          formattedContent += structResponse.explanation;
+        } else if (structResponse.sections.explanation) {
+          formattedContent += structResponse.sections.explanation;
+        }
+      } 
+      // For Musharaka responses
+      else if (structResponse.sections && 
+              (responseData.response?.includes("MUSHARAKA FINANCING") || 
+              (structResponse.sections.analysis && structResponse.sections.analysis.includes("Musharaka")))) {
+        
+        // Just include the title and explanation in the main content
+        formattedContent = "## ANALYSIS OF MUSHARAKA FINANCING\n\n";
+        
+        if (structResponse.explanation) {
+          formattedContent += structResponse.explanation;
+        } else if (structResponse.sections.explanation) {
+          formattedContent += structResponse.sections.explanation;
+        }
+      }
+      else {
+        // For other responses, use the full formatted response
+        formattedContent = responseData.response || "Response processed successfully.";
+      }
+      
       return {
         thinking: responseData.thinking_process,
-        answer: responseData.explanation || responseData.response || "Response processed successfully.",
+        answer: formattedContent,
         structuredResponse: responseData.structured_response
       };
     }
