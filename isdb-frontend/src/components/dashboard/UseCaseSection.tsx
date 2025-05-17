@@ -529,8 +529,8 @@ export default function UseCaseSection() {
                         thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
                         tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
                         tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
-                        th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{children}</th>,
-                        td: ({ children }) => <td className="px-3 py-2 whitespace-nowrap text-sm">{children}</td>
+                        th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-600">{children}</th>,
+                        td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>
                       }}>{content}</ReactMarkdown>
                     </div>
                   </div>
@@ -927,6 +927,17 @@ export default function UseCaseSection() {
                               return <p className="mb-3">{children}</p>;
                             },
                             strong: ({ children }) => <span className="font-bold">{children}</span>,
+                            // Properly render tables
+                            table: ({ children }) => (
+                              <div className="overflow-x-auto my-4">
+                                <table className="min-w-full divide-y divide-gray-200">{children}</table>
+                              </div>
+                            ),
+                            thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+                            tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+                            tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
+                            th: ({ children }) => <th className="px-3 py-2 text-left text-sm font-medium text-gray-600">{children}</th>,
+                            td: ({ children }) => <td className="px-3 py-2 text-sm">{children}</td>,
                             text: ({ ...props }) => {
                               const text = props.children as string;
                               
