@@ -255,8 +255,22 @@ export default function UseCaseSection() {
           formattedContent += structResponse.sections.explanation;
         }
       }
+      // For Ijarah responses
+      else if (structResponse.sections && 
+              (responseData.response?.includes("IJARAH MBT SCENARIO") || 
+              (structResponse.sections.analysis && structResponse.sections.analysis.includes("Ijarah")))) {
+        
+        // Just include the title and explanation in the main content
+        formattedContent = "## ANALYSIS OF IJARAH MBT SCENARIO\n\n";
+        
+        if (structResponse.explanation) {
+          formattedContent += structResponse.explanation;
+        } else if (structResponse.sections.explanation) {
+          formattedContent += structResponse.sections.explanation;
+        }
+      }
+      // For other responses, use the full formatted response
       else {
-        // For other responses, use the full formatted response
         formattedContent = responseData.response || "Response processed successfully.";
       }
       
@@ -465,16 +479,17 @@ export default function UseCaseSection() {
       'variables': 'Extracted Variables',
       'calculations': 'Detailed Calculations',
       'journal_entries': 'Journal Entries',
+      'explanation': 'Additional Explanation'
     };
 
     return (
       <div className="space-y-4 mt-4">
-        {/* Dynamic Sections */}
+        {/* Dynamic Sections from structured response */}
         {hasDetailedSections && (
           <>
             {Object.entries(sections).map(([key, content]) => {
-              // Skip the explanation section as it's already displayed in the main message content
-              if (key === 'explanation' || !content) return null;
+              // Skip empty content
+              if (!content) return null;
               
               return (
                 <div key={key} className="w-full border rounded-lg overflow-hidden bg-white">
@@ -507,7 +522,20 @@ export default function UseCaseSection() {
                         },
                         p: ({ children }) => {
                           return <p className="mb-3 whitespace-pre-line">{children}</p>;
-                        }
+                        },
+                        // Properly render tables
+                        table: ({ children }) => {
+                          return (
+                            <div className="overflow-x-auto my-4">
+                              <table className="min-w-full divide-y divide-gray-200">{children}</table>
+                            </div>
+                          );
+                        },
+                        thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
+                        tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+                        tr: ({ children }) => <tr className="hover:bg-gray-50">{children}</tr>,
+                        th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{children}</th>,
+                        td: ({ children }) => <td className="px-3 py-2 whitespace-nowrap text-sm">{children}</td>
                       }}>{content}</ReactMarkdown>
                     </div>
                   </div>
@@ -671,7 +699,7 @@ export default function UseCaseSection() {
                   </table>
                 )}
 
-                {/* Percentage-of-Completion Progress Visualization */}
+                {/* Percentage-of-Completion Progress Visualization - Kept from original code */}
                 {isPOCScenario && (
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium mb-3 text-gray-700">Project Progress Visualization</h4>
