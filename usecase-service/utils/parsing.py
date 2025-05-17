@@ -34,7 +34,8 @@ def parse_financial_data(response_text, query_text):
         "explanation": "",
         "calculations": [],
         "journal_entries": [],
-        "ledger_summary": []
+        "ledger_summary": [],
+        "amortizable_amount_table": []
     }
     
     # Extract explanation
@@ -178,6 +179,29 @@ def parse_financial_data(response_text, query_text):
             
         result["ledger_summary"] = ledger_data
     
+    # Extract amortizable amount calculation table for Ijarah
+    if "ijarah" in query_text.lower() or "lease" in query_text.lower():
+        amortizable_table_match = re.search(r"AMORTIZABLE AMOUNT CALCULATION\s*\n.*?\n.*?\n(.*?)(?:\n\n|\n[A-Z]|\Z)", response_text, re.DOTALL)
+        if amortizable_table_match:
+            table_rows = amortizable_table_match.group(1).strip().split('\n')
+            for row in table_rows:
+                # Extract description and amount
+                parts = row.split()
+                if len(parts) >= 2:
+                    # Last part is the amount
+                    amount_str = parts[-1].replace(',', '').replace('$', '')
+                    try:
+                        amount = float(amount_str)
+                        # Join all parts except the last one as the description
+                        description = ' '.join(parts[:-1])
+                        result["amortizable_amount_table"].append({
+                            "description": description,
+                            "amount": amount
+                        })
+                    except ValueError:
+                        # Skip if amount is not a valid number
+                        pass
+
     # Extract journal entries
     journal_section_match = re.search(r"Journal Entry:?\s*\n(.*?)(?:\n\n|\n[A-Z]|\Z)", response_text, re.DOTALL)
     if journal_section_match:

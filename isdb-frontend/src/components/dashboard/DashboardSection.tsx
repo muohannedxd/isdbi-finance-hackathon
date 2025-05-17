@@ -131,7 +131,10 @@ export default function DashboardSection() {
           .slice(0, 5);
         
         // Get recent queries with transaction data
-        const useCaseQueries = userMsgs.slice(-5).map(msg => {
+        // Process user messages to get user-assistant pairs
+        // Skip the first message if it's a static welcome message
+        const startIndex = messages[0]?.role === 'assistant' && !messages[0]?.content.includes('?') ? 1 : 0;
+        const useCaseQueries = userMsgs.slice(startIndex).map(msg => {
           // Find the corresponding assistant response
           const assistantIdx = messages.findIndex((m, i) => 
             i > messages.indexOf(msg) && m.role === 'assistant'
@@ -173,16 +176,8 @@ export default function DashboardSection() {
         });
         // Add UseCase queries to the recent queries state
         if (useCaseQueries.length > 0) {
-          setRecentQueries(prevQueries => {
-            const allQueries = [...prevQueries, ...useCaseQueries];
-            return allQueries
-              .sort((a, b) => {
-                const dateA = new Date(`${a.date} ${a.time}`);
-                const dateB = new Date(`${b.date} ${b.time}`);
-                return dateB.getTime() - dateA.getTime();
-              })
-              .slice(0, 10);
-          });
+          // Reset the queries state to only contain the most recent UseCase queries
+          setRecentQueries(useCaseQueries);
         }
       } catch (error) {
         console.error('Error parsing UseCase history:', error);
@@ -219,9 +214,12 @@ export default function DashboardSection() {
         const transactionTypeMap: {[key: string]: number} = {};
         
         // Get recent queries from reverse transactions
+        // Process user messages to get user-assistant pairs
+        // Skip the first message if it's a static welcome message
+        const startIndex = messages[0]?.role === 'assistant' && !messages[0]?.content.includes('?') ? 1 : 0;
         const reverseTransactionQueries = messages
           .filter(msg => msg.role === 'user')
-          .slice(-5)
+          .slice(startIndex)
           .map(msg => {
             // Find the corresponding assistant response
             const assistantIdx = messages.findIndex((m, i) => 
@@ -285,14 +283,31 @@ export default function DashboardSection() {
           setRecentQueries(prevQueries => {
             // Combine with any existing queries from useCase
             const allQueries = [...prevQueries, ...reverseTransactionQueries];
-            // Sort by date and time (newest first)
-            return allQueries
+            
+            // Create a map to deduplicate queries based on content
+            const uniqueQueries = new Map();
+            
+            // Add each query to the map, using a truncated content as the key
+            // This helps with deduplication when the same query appears with slight differences
+            allQueries.forEach(query => {
+              // Use the first 30 characters as the key for better deduplication
+              const key = query.content.substring(0, 30);
+              // Only update the map if this key doesn't exist or if the current query is newer
+              if (!uniqueQueries.has(key) || 
+                  new Date(`${query.date} ${query.time}`).getTime() > 
+                  new Date(`${uniqueQueries.get(key).date} ${uniqueQueries.get(key).time}`).getTime()) {
+                uniqueQueries.set(key, query);
+              }
+            });
+            
+            // Convert map values back to array and sort by date
+            return Array.from(uniqueQueries.values())
               .sort((a, b) => {
                 const dateA = new Date(`${a.date} ${a.time}`);
                 const dateB = new Date(`${b.date} ${b.time}`);
                 return dateB.getTime() - dateA.getTime();
               })
-              .slice(0, 10); // Keep only the 10 most recent
+              .slice(0, 20); // Keep up to 20 recent queries
           });
         }
       } catch (error) {

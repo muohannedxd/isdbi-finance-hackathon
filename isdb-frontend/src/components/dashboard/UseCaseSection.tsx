@@ -29,12 +29,19 @@ interface LedgerRow {
   [key: string]: string | number;
 }
 
+// Amortizable amount table entry interface
+interface AmortizableTableEntry {
+  description: string;
+  amount: number;
+}
+
 // Structured finance response interface
 interface StructuredFinanceResponse {
   explanation: string;
   calculations?: FinancialCalculation[];
   journal_entries?: JournalEntry[];
   ledger_summary?: LedgerRow[];
+  amortizable_amount_table?: AmortizableTableEntry[];
 }
 
 // Interface to represent message format with optional thinking field
@@ -371,7 +378,7 @@ export default function UseCaseSection() {
   const renderStructuredData = (message: Message, index: number) => {
     if (!message.structuredResponse) return null;
     
-    const { calculations, journal_entries, ledger_summary } = message.structuredResponse;
+    const { calculations, journal_entries, ledger_summary, amortizable_amount_table } = message.structuredResponse;
     const isExpanded = expandedSections[index] || [];
     
     // Check if this is a percentage-of-completion scenario for special handling
@@ -413,6 +420,42 @@ export default function UseCaseSection() {
                             ? `${calc.value}%` 
                             : formatCurrency(calc.value)}
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Amortizable Amount Table Section - For Ijarah */}
+        {amortizable_amount_table && amortizable_amount_table.length > 0 && (
+          <div className="w-full border rounded-lg overflow-hidden bg-white">
+            <button 
+              onClick={() => toggleSection(index, 'amortizable')}
+              className="flex items-center justify-between w-full p-3 bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
+            >
+              <div className="flex items-center">
+                <Calculator className="h-5 w-5 mr-2" />
+                <span className="font-medium">Amortizable Amount Calculation</span>
+              </div>
+              <ChevronDown className={`h-5 w-5 transition-transform ${isExpanded.includes('amortizable') ? 'rotate-180' : ''}`} />
+            </button>
+            <div className={`transition-all duration-300 ${isExpanded.includes('amortizable') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+              <div className="p-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-3 font-medium">Description</th>
+                      <th className="p-3 font-medium text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {amortizable_amount_table.map((entry, i) => (
+                      <tr key={i} className={`hover:bg-gray-50 ${entry.description.toLowerCase().includes('amortizable') ? 'font-semibold' : ''}`}>
+                        <td className="p-3">{entry.description}</td>
+                        <td className="p-3 text-right">{formatCurrency(entry.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -656,7 +699,15 @@ export default function UseCaseSection() {
                       {message.role === "user" ? (
                         <div className="whitespace-pre-wrap">{message.content}</div>
                       ) : (
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                        <ReactMarkdown components={{
+                          // Make numbers bold in response
+                          text: ({...props}) => {
+                            const text = props.children as string;
+                            // Replace numbers with bold numbers
+                            const formattedText = text.replace(/([0-9,.]+)/g, '**$1**');
+                            return <ReactMarkdown>{formattedText}</ReactMarkdown>;
+                          }
+                        }}>{message.content}</ReactMarkdown>
                       )}
                     </div>
                     
