@@ -1,6 +1,6 @@
 flask
+flask-cors
 python-dotenv
 pandas
 numpy
-matplotlib
 google-generativeai

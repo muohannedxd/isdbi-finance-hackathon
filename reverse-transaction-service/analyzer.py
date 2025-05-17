@@ -3,7 +3,6 @@ import re
 import json
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import google.generativeai as genai
 from concurrent.futures import ThreadPoolExecutor
 from standards import standards_info, standard_keywords
