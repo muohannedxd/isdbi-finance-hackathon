@@ -272,26 +272,30 @@ Step 1: Calculate ROU Asset
   Freight Charges = [Show exact amount from scenario]
   Prime Cost = Purchase Price + Import Tax + Freight Charges = [Show calculation with actual numbers]
   Purchase Option Price = [Show exact amount from scenario]
-  ROU Asset = Prime Cost = [Show final calculated amount]
+  ROU Asset = Prime Cost - Purchase Option Price = [Show final calculated amount]
 
 Step 2: Calculate Deferred Ijarah Cost
-  Total Rentals = Yearly Rental × Lease Term
-  Less ROU Asset = Total Rentals - ROU Asset
+  Total Rentals = Yearly Rental × Lease Term = [Show calculation]
+  Deferred Ijarah Cost = Total Rentals - ROU Asset = [Show calculation]
 
 Step 3: Calculate Amortizable Amount
-  ROU Cost = [Value calculated in Step 1]
-  Less Terminal Value Difference = Residual Value - Purchase Option Price
-  Amortizable Amount = ROU Cost - Terminal Value Difference
+  ROU Asset = [Value from Step 1]
+  Terminal Value Difference = Residual Value - Purchase Option Price = [Show calculation]
+  Amortizable Amount = ROU Asset - Terminal Value Difference = [Show calculation]
 
 JOURNAL ENTRY
 ------------------------------
-Dr. Right of Use Asset (ROU)         [Amount]
-Dr. Deferred Ijarah Cost             [Amount]
-    Cr. Ijarah Liability             [Amount]
+Dr. Right of Use Asset (ROU)         [Amount from Step 1]
+Dr. Deferred Ijarah Cost             [Amount from Step 2]
+    Cr. Ijarah Liability             [Total Rentals amount]
 
 EXPLANATION
 ------------------------------
-[Explain that the entry recognizes the right to use the asset based on its cost minus terminal value, the financing cost component to be amortized over the lease term, and the total liability for future lease payments. Also explain that the amortizable amount reflects the ROU asset adjusted for the value that will remain after ownership transfer.]
+[Explain that:
+1. The ROU asset represents the net cost of the leased asset (prime cost minus purchase option price)
+2. The deferred ijarah cost represents the financing cost component (total rentals minus ROU asset)
+3. The amortizable amount reflects the portion of ROU asset that will be consumed during the lease term (ROU asset adjusted for the difference between residual value and purchase price)
+4. The journal entry properly records both the right to use the asset and the financing obligation]
 """
 
 SUKUK_PROMPT_TEMPLATE = """

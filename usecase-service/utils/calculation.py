@@ -33,7 +33,7 @@ def calculate_ijarah_values(variables):
 
     # Core calculations
     prime_cost = purchase_price + import_tax + freight_charges
-    rou_asset = prime_cost
+    rou_asset = prime_cost - purchase_option  # Corrected: subtract purchase option price
     total_rentals = yearly_rental * lease_term
     deferred_cost = total_rentals - rou_asset
     terminal_value_diff = residual_value - purchase_option
