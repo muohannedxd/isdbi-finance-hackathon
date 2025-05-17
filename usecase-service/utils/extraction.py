@@ -5,7 +5,7 @@ Extraction utilities for the Islamic Finance API.
 import re
 from .constants import (
     STANDARD_TYPE_MURABAHA, STANDARD_TYPE_SALAM, STANDARD_TYPE_ISTISNA,
-    STANDARD_TYPE_IJARAH, STANDARD_TYPE_SUKUK
+    STANDARD_TYPE_IJARAH, STANDARD_TYPE_SUKUK, STANDARD_TYPE_MUSHARAKA
 )
 
 def detect_standard_type(query_text):
@@ -19,6 +19,12 @@ def detect_standard_type(query_text):
         str: The detected standard type or None if no match
     """
     query_lower = query_text.lower()
+    musharaka_keywords = [
+        'musharaka', 'musharakah', 'sharikah', 'partnership', 'joint venture',
+        'profit sharing', 'capital contribution', 'diminishing musharaka', 'aaoifi fas 4'
+    ]
+    if any(keyword in query_lower for keyword in musharaka_keywords):
+        return STANDARD_TYPE_MUSHARAKA
     murabaha_keywords = [
         'murabaha', 'murabahah', 'cost plus sale', 'cost-plus financing', 
         'deferred payment sale', 'aaoifi fas 4'
@@ -160,4 +166,40 @@ def extract_istisna_variables(query_text):
                 except ValueError:
                     pass
     
+    return extracted_values
+
+def extract_musharaka_variables(query_text):
+    """
+    Extract key financial variables from a Musharaka scenario text using regex.
+    
+    Args:
+        query_text (str): The query text to extract variables from
+        
+    Returns:
+        dict: Extracted variables
+    """
+    patterns = {
+        'capital_contribution_bank': r'(?:bank|islamic bank|financial institution).*?(?:capital|contributed|invested).*?(?:\$|USD|usd|SAR|sar|AED|aed|EUR|eur|GBP|gbp)[,\s]*([0-9,.]+)',
+        'capital_contribution_partner': r'(?:client|partner|customer).*?(?:capital|contributed|invested).*?(?:\$|USD|usd|SAR|sar|AED|aed|EUR|eur|GBP|gbp)[,\s]*([0-9,.]+)',
+        'profit_ratio_bank': r'(?:bank|islamic bank).*?(?:profit|share|ratio).*?([0-9,.]+)[\s]*(?:%|percent)',
+        'profit_ratio_partner': r'(?:client|partner|customer).*?(?:profit|share|ratio).*?([0-9,.]+)[\s]*(?:%|percent)',
+        'partnership_term': r'(?:partnership|contract|musharaka).*?(?:term|period|duration).*?([0-9,.]+)[\s]*(?:year|yr|yrs|years|month|months)',
+        'diminishing_rate': r'(?:diminishing|decrease|reduce).*?([0-9,.]+)[\s]*(?:%|percent).*?(?:per year|annually|each year)'
+    }
+    extracted_values = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, query_text, re.IGNORECASE)
+        if match:
+            value_str = match.group(1).replace(',', '')
+            try:
+                extracted_values[key] = float(value_str)
+            except ValueError:
+                pass
+    
+    # Try to detect if it's a diminishing musharaka
+    if 'diminish' in query_text.lower() or 'decline' in query_text.lower() or 'gradually' in query_text.lower():
+        extracted_values['is_diminishing'] = True
+    else:
+        extracted_values['is_diminishing'] = False
+        
     return extracted_values

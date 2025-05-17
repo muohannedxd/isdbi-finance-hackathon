@@ -11,7 +11,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 # Import utility modules
 from utils.constants import (
     CHROMA_PATH, DEFAULT_EMBEDDING_MODEL, TOGETHER_MODEL, GEMINI_MODEL, API_METHOD,
-    STANDARD_TYPE_MURABAHA, STANDARD_TYPE_SALAM, STANDARD_TYPE_ISTISNA, STANDARD_TYPE_IJARAH, STANDARD_TYPE_SUKUK
+    STANDARD_TYPE_MURABAHA, STANDARD_TYPE_SALAM, STANDARD_TYPE_ISTISNA, 
+    STANDARD_TYPE_IJARAH, STANDARD_TYPE_SUKUK, STANDARD_TYPE_MUSHARAKA
 )
 from utils.extraction import detect_standard_type, extract_ijarah_variables, extract_murabaha_variables, extract_istisna_variables
 from utils.calculation import calculate_ijarah_values, calculate_murabaha_values, calculate_istisna_values
@@ -93,6 +94,8 @@ def process_query(query_text, embedding_model=DEFAULT_EMBEDDING_MODEL, llm_model
         search_query = f"ijarah lease AAOIFI FAS 28 {query_text}"
     elif standard_type == STANDARD_TYPE_SUKUK:
         search_query = f"sukuk investment AAOIFI FAS 32 {query_text}"
+    elif standard_type == STANDARD_TYPE_MUSHARAKA:
+        search_query = f"musharaka partnership AAOIFI FAS 4 {query_text}"
         
     results = db.similarity_search_with_relevance_scores(search_query, k=5)
     if len(results) == 0 or results[0][1] < -9:
@@ -199,6 +202,12 @@ def query_handler():
             print("\n==== STRUCTURED SUKUK DATA (FRONTEND) ====\n")
             print(parsed_result)
             print("\n==== END SUKUK FRONTEND DATA ====\n")
+        elif standard_type == STANDARD_TYPE_MUSHARAKA:
+            print("\n==== MUSHARAKA RESPONSE (FRONTEND) ====\n")
+            print(result["response"])
+            print("\n==== STRUCTURED MUSHARAKA DATA (FRONTEND) ====\n")
+            print(parsed_result)
+            print("\n==== END MUSHARAKA FRONTEND DATA ====\n")
         else:
             print("\n==== GENERIC RESPONSE (FRONTEND) ====\n")
             print(result["response"])

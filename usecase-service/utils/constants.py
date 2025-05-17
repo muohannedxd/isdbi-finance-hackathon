@@ -16,6 +16,7 @@ STANDARD_TYPE_SALAM = "SALAM"
 STANDARD_TYPE_ISTISNA = "ISTISNA"
 STANDARD_TYPE_IJARAH = "IJARAH"
 STANDARD_TYPE_SUKUK = "SUKUK"
+STANDARD_TYPE_MUSHARAKA = "MUSHARAKA"
 
 # Standards information
 STANDARDS_INFO = """
@@ -329,6 +330,42 @@ EXPLANATION
 [Provide concise explanation of the accounting treatment and its compliance with Islamic finance principles]
 """
 
+MUSHARAKA_PROMPT_TEMPLATE = """
+You are an Islamic finance accounting specialist. Analyze the following Musharaka financing scenario and provide structured accounting analysis according to AAOIFI FAS 4.
+
+CONTEXT FROM ISLAMIC FINANCE STANDARDS:
+{context}
+
+SCENARIO:
+{question}
+
+FORMAT YOUR RESPONSE EXACTLY AS FOLLOWS:
+ANALYSIS OF MUSHARAKA FINANCING
+------------------------------
+Transaction Type: [Constant/Diminishing] Musharaka
+Applicable Standard: AAOIFI FAS 4
+Accounting Method: Partnership Accounting Method
+
+EXTRACTED VARIABLES
+------------------------------
+[List all monetary values, terms, profit-sharing ratios, and relevant financial data extracted from the scenario]
+
+CALCULATIONS
+------------------------------
+Initial Recognition:
+Step 1: Capital Contribution
+Step 2: Profit/Loss Sharing Mechanism
+Step 3: [If Diminishing] Ownership Transfer Calculation
+
+JOURNAL ENTRY
+------------------------------
+[Format proper accounting journal entries with clear debits and credits]
+
+EXPLANATION
+------------------------------
+[Provide concise explanation of the accounting treatment and its compliance with Islamic finance principles]
+"""
+
 def get_prompt_for_standard(standard_type, include_examples=True):
     """
     Get the appropriate prompt template for the detected standard.
@@ -352,6 +389,8 @@ def get_prompt_for_standard(standard_type, include_examples=True):
         prompt_template = IJARAH_PROMPT_TEMPLATE
     elif standard_type == STANDARD_TYPE_SUKUK:
         prompt_template = SUKUK_PROMPT_TEMPLATE
+    elif standard_type == STANDARD_TYPE_MUSHARAKA:
+        prompt_template = MUSHARAKA_PROMPT_TEMPLATE
     else:
         return PROMPT_TEMPLATE
 
