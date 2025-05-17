@@ -377,7 +377,7 @@ export default function ReverseTransactionSection() {
                                   <div key={i} className="flex justify-between items-center bg-blue-100/50 p-2 rounded">
                                     <span>{standard.standard}</span>
                                     <div className="flex items-center gap-2">
-                                      <span className="text-sm text-blue-700">Weight: {standard.weight}%</span>
+                                      <span className="text-sm text-blue-700">Confidence: {standard.weight}%</span>
                                       <div className="w-24 h-2 bg-blue-200 rounded-full overflow-hidden">
                                         <div
                                           className="h-full bg-blue-600 rounded-full"
