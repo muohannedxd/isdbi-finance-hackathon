@@ -930,10 +930,10 @@ export default function UseCaseSection() {
                             handleValidateResponse(userMessage.content, message.content, index);
                           }
                         }}
-                        className="absolute top-1 right-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs py-1 px-2 rounded"
+                        className="absolute bottom-1 right-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs py-1 px-2 rounded"
                         title="Validate this response as a good example"
                       >
-                        Validate ✓
+                        Validate Answer ✓
                       </button>
                     )}
 
